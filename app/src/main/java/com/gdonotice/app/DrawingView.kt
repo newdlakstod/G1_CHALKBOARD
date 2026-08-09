@@ -19,7 +19,7 @@ class DrawingView(
     context: Context,
     boardCode: String,
     initialBoardColor: Int,
-    private val onSaved: (ByteArray, Boolean) -> Unit
+    private val onSaved: (ByteArray, Boolean, Int) -> Unit
 ) : View(context) {
     // The shared board always keeps the unfolded Fold's landscape ratio.
     // A folded cover screen crops this canvas; it never rotates or stretches it.
@@ -173,6 +173,11 @@ class DrawingView(
         if (shouldSave) save(false)
     }
 
+    fun restoreBoardBackgroundColor(color: Int) {
+        boardColor = color
+        setBackgroundColor(color)
+    }
+
     private fun rebasePixel(pixel: Int, oldBackground: Int, newBackground: Int): Int {
         val pr = Color.red(pixel).toFloat()
         val pg = Color.green(pixel).toFloat()
@@ -299,7 +304,7 @@ class DrawingView(
     private fun save(cleared: Boolean) {
         val bytes = snapshot()
         FileOutputStream(file).use { it.write(bytes) }
-        onSaved(bytes, cleared)
+        onSaved(bytes, cleared, boardColor)
     }
 
     private fun remember() {
@@ -323,11 +328,7 @@ class DrawingView(
         save(false)
     }
 
-    private fun coverScale() = if (isExpanded()) {
-        minOf(width.toFloat() / bitmap.width, height.toFloat() / bitmap.height)
-    } else {
-        maxOf(width.toFloat() / bitmap.width, height.toFloat() / bitmap.height)
-    }
+    private fun coverScale() = maxOf(width.toFloat() / bitmap.width, height.toFloat() / bitmap.height)
 
     private fun isExpanded() = resources.configuration.screenWidthDp >= 600
 

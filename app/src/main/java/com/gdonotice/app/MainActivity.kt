@@ -436,13 +436,17 @@ class MainActivity : ComponentActivity() {
     private fun showBoard(code: String) {
         currentBoardCode = code
         val document = db.collection("boards").document(code)
+        var lastBackground = prefs.getInt("background_$code", 0xFF1A422F.toInt())
         lateinit var board: DrawingView
-        board = DrawingView(this, code, prefs.getInt("background_$code", 0xFF1A422F.toInt())) { bytes, cleared ->
+        board = DrawingView(this, code, lastBackground) { bytes, cleared, background ->
             BoardWidget.updateAll(this)
             val user = auth.currentUser ?: return@DrawingView
             val now = Timestamp.now()
             val update = mutableMapOf<String, Any>(
-                "image" to Blob.fromBytes(bytes), "updatedAt" to now, "updatedBy" to user.uid
+                "image" to Blob.fromBytes(bytes),
+                "backgroundColor" to background.toLong(),
+                "updatedAt" to now,
+                "updatedBy" to user.uid
             )
             if (cleared) update["clearedAt"] = now
             document.update(update).addOnFailureListener { toast("그림을 동기화하지 못했습니다.") }
@@ -458,12 +462,14 @@ class MainActivity : ComponentActivity() {
         document.addSnapshotListener { snapshot, error ->
             if (error != null) return@addSnapshotListener toast("동기화 연결을 확인해 주세요.")
             val background = snapshot?.getLong("backgroundColor")?.toInt() ?: 0xFF1A422F.toInt()
+            val backgroundChanged = background != lastBackground
+            lastBackground = background
             prefs.edit().putInt("background_$code", background).apply()
-            board.setBoardBackgroundColor(background, false)
+            board.restoreBoardBackgroundColor(background)
             if (firstSnapshot || snapshot?.getString("updatedBy") != auth.currentUser?.uid) {
                 snapshot?.getBlob("image")?.toBytes()?.let {
                     val wasCleared = snapshot.getTimestamp("clearedAt") == snapshot.getTimestamp("updatedAt")
-                    if (firstSnapshot || wasCleared) board.replaceFromBytes(it) else board.mergeFromBytes(it)
+                    if (firstSnapshot || wasCleared || backgroundChanged) board.replaceFromBytes(it) else board.mergeFromBytes(it)
                     firstSnapshot = false
                     BoardWidget.updateAll(this)
                 }
@@ -690,7 +696,6 @@ class MainActivity : ComponentActivity() {
                             background = rounded(color, 999f)
                             setOnClickListener {
                                 prefs.edit().putInt("background_$code", color).apply()
-                                db.collection("boards").document(code).update("backgroundColor", color.toLong())
                                 board.setBoardBackgroundColor(color, true)
                             }
                         }, LinearLayout.LayoutParams(0, 48.dp, 1f).apply {

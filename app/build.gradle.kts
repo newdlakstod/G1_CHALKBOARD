@@ -15,8 +15,8 @@ android {
         base.archivesName.set("G1_CHALKBOARD")
         minSdk = 26
         targetSdk = 35
-        versionCode = 26
-        versionName = "0.9.1"
+        versionCode = 27
+        versionName = "0.9.2"
     }
 
     compileOptions {
