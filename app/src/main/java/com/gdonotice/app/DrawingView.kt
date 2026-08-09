@@ -18,6 +18,7 @@ import kotlin.random.Random
 class DrawingView(
     context: Context,
     boardCode: String,
+    initialBoardColor: Int,
     private val onSaved: (ByteArray, Boolean) -> Unit
 ) : View(context) {
     // The shared board always keeps the unfolded Fold's landscape ratio.
@@ -25,7 +26,7 @@ class DrawingView(
     private val boardWidth = 1239
     private val boardHeight = 819
     private val file = File(context.filesDir, "board_$boardCode.png")
-    private var boardColor = Color.rgb(26, 66, 47)
+    private var boardColor = initialBoardColor
     private val chalkColors = intArrayOf(
         0xFFFDE7D0.toInt(), 0xFFDBAB7D.toInt(), 0xFFD99858.toInt(), 0xFFB58352.toInt(), 0xFFA4805C.toInt(),
         0xFFB8C8A4.toInt(), 0xFFC3C7A4.toInt(), 0xFFC7C4A3.toInt(), 0xFFCAC281.toInt(), 0xFF837D41.toInt(),

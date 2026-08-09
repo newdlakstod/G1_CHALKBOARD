@@ -197,12 +197,12 @@ class MainActivity : ComponentActivity() {
             addView(scroll, FrameLayout.LayoutParams(-1, -1))
             addView(Button(this@MainActivity).apply {
                 text = "+"
-                textSize = 60f
+                primaryStyle()
+                textSize = 32f
                 includeFontPadding = false
                 gravity = Gravity.CENTER
                 contentDescription = "칠판 추가"
                 setPadding(0, 0, 0, 3.dp)
-                primaryStyle()
                 setOnClickListener { showAddBoardDialog() }
             }, FrameLayout.LayoutParams(58.dp, 58.dp, Gravity.BOTTOM or Gravity.END).apply {
                 marginEnd = 22.dp
@@ -303,12 +303,14 @@ class MainActivity : ComponentActivity() {
     private fun showAddBoardDialog() {
         val nameInput = EditText(this).apply {
             hint = "새 칠판 이름 기입"
+            setHintTextColor(Color.rgb(185, 185, 185))
             setSingleLine()
             background = rounded(Color.WHITE, 30f)
             setPadding(18.dp, 0, 18.dp, 0)
         }
         val codeInput = EditText(this).apply {
             hint = "초대코드로 입장"
+            setHintTextColor(Color.rgb(185, 185, 185))
             gravity = Gravity.CENTER_VERTICAL or Gravity.START
             setSingleLine()
             background = rounded(Color.WHITE, 30f)
@@ -433,7 +435,7 @@ class MainActivity : ComponentActivity() {
         currentBoardCode = code
         val document = db.collection("boards").document(code)
         lateinit var board: DrawingView
-        board = DrawingView(this, code) { bytes, cleared ->
+        board = DrawingView(this, code, prefs.getInt("background_$code", 0xFF1A422F.toInt())) { bytes, cleared ->
             BoardWidget.updateAll(this)
             val user = auth.currentUser ?: return@DrawingView
             val now = Timestamp.now()
@@ -453,7 +455,10 @@ class MainActivity : ComponentActivity() {
         var firstSnapshot = true
         document.addSnapshotListener { snapshot, error ->
             if (error != null) return@addSnapshotListener toast("동기화 연결을 확인해 주세요.")
-            if (snapshot?.getString("updatedBy") != auth.currentUser?.uid) {
+            val background = snapshot?.getLong("backgroundColor")?.toInt() ?: 0xFF1A422F.toInt()
+            prefs.edit().putInt("background_$code", background).apply()
+            board.setBoardBackgroundColor(background, false)
+            if (firstSnapshot || snapshot?.getString("updatedBy") != auth.currentUser?.uid) {
                 snapshot?.getBlob("image")?.toBytes()?.let {
                     val wasCleared = snapshot.getTimestamp("clearedAt") == snapshot.getTimestamp("updatedAt")
                     if (firstSnapshot || wasCleared) board.replaceFromBytes(it) else board.mergeFromBytes(it)
@@ -461,8 +466,6 @@ class MainActivity : ComponentActivity() {
                     BoardWidget.updateAll(this)
                 }
             }
-            val background = snapshot?.getLong("backgroundColor")?.toInt() ?: 0xFF1A422F.toInt()
-            board.setBoardBackgroundColor(background, false)
         }
     }
 
@@ -683,6 +686,7 @@ class MainActivity : ComponentActivity() {
                             setTextColor(if (color == 0xFF2E2E2E.toInt() || color == 0xFF1A422F.toInt()) Color.WHITE else Color.BLACK)
                             background = rounded(color, 999f)
                             setOnClickListener {
+                                prefs.edit().putInt("background_$code", color).apply()
                                 db.collection("boards").document(code).update("backgroundColor", color.toLong())
                                 board.setBoardBackgroundColor(color, true)
                             }
