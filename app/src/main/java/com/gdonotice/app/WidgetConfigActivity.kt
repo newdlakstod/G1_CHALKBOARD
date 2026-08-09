@@ -87,7 +87,7 @@ class WidgetConfigActivity : ComponentActivity() {
                     }
                 }, GridLayout.LayoutParams().apply {
                     width = cardWidth
-                    height = (cardWidth * 1.32f).toInt()
+                    height = (cardWidth * 1.38f).toInt()
                     setMargins(3.dp, 6.dp, 3.dp, 6.dp)
                 })
             }

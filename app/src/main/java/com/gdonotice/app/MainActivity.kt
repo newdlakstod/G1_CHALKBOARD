@@ -171,12 +171,14 @@ class MainActivity : ComponentActivity() {
         val codes = prefs.getStringSet("codes", emptySet()).orEmpty()
         val requests = codes.map { db.collection("boards").document(it).get() }
         Tasks.whenAllSuccess<DocumentSnapshot>(requests).addOnSuccessListener { snapshots ->
+            val existing = snapshots.filter { it.exists() }
+            prefs.edit().putStringSet("codes", existing.mapTo(mutableSetOf()) { it.id }).apply()
             val mode = prefs.getString("sortMode", "date_desc")
             val sorted = when (mode) {
-                "name_asc" -> snapshots.sortedBy { it.getString("name").orEmpty().lowercase() }
-                "name_desc" -> snapshots.sortedByDescending { it.getString("name").orEmpty().lowercase() }
-                "date_asc" -> snapshots.sortedBy { (it.getTimestamp("createdAt") ?: it.getTimestamp("updatedAt"))?.seconds ?: 0L }
-                else -> snapshots.sortedByDescending { (it.getTimestamp("createdAt") ?: it.getTimestamp("updatedAt"))?.seconds ?: 0L }
+                "name_asc" -> existing.sortedBy { it.getString("name").orEmpty().lowercase() }
+                "name_desc" -> existing.sortedByDescending { it.getString("name").orEmpty().lowercase() }
+                "date_asc" -> existing.sortedBy { (it.getTimestamp("createdAt") ?: it.getTimestamp("updatedAt"))?.seconds ?: 0L }
+                else -> existing.sortedByDescending { (it.getTimestamp("createdAt") ?: it.getTimestamp("updatedAt"))?.seconds ?: 0L }
             }
             sorted.forEach { snapshot ->
                 addBoardCard(
