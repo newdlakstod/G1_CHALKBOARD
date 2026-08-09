@@ -197,7 +197,7 @@ class MainActivity : ComponentActivity() {
             addView(scroll, FrameLayout.LayoutParams(-1, -1))
             addView(Button(this@MainActivity).apply {
                 text = "+"
-                textSize = 28f
+                textSize = 40f
                 contentDescription = "칠판 추가"
                 setPadding(0, 0, 0, 2.dp)
                 primaryStyle()
@@ -247,7 +247,7 @@ class MainActivity : ComponentActivity() {
         }
         val title = TextView(this).apply {
             text = snapshot.getString("name") ?: "칠판 $code"
-            textSize = if (columns == 6) 12f else 14f
+            textSize = if (columns == 6) 14f else 16f
             setTextColor(Color.rgb(31, 31, 31))
             setTypeface(pretendard, Typeface.BOLD)
             maxLines = 1
@@ -707,7 +707,7 @@ class MainActivity : ComponentActivity() {
                 textSize = 14f
                 setTextColor(Color.rgb(116, 110, 105))
             }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 12.dp })
-            addView(editor, LinearLayout.LayoutParams(280.dp, 370.dp))
+            addView(editor, LinearLayout.LayoutParams(190.dp, 251.dp))
         }
         showRoundDialog("표지 위치 및 크기", content, "저장") {
             val cover = editor.export()
@@ -771,8 +771,8 @@ class MainActivity : ComponentActivity() {
             attributes = attributes.apply { dimAmount = 0.42f }
         }
         dialog.setOnShowListener {
-            val maxWidth = if (resources.configuration.screenWidthDp >= 600) 420.dp else 360.dp
-            dialog.window?.setLayout(minOf(resources.displayMetrics.widthPixels - 64.dp, maxWidth), WindowManager.LayoutParams.WRAP_CONTENT)
+            val maxWidth = if (resources.configuration.screenWidthDp >= 600) 280.dp else 240.dp
+            dialog.window?.setLayout(minOf(resources.displayMetrics.widthPixels - 96.dp, maxWidth), WindowManager.LayoutParams.WRAP_CONTENT)
         }
         dialog.show()
         return dialog

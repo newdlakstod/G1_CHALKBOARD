@@ -26,6 +26,15 @@ class DrawingView(
     private val boardHeight = 819
     private val file = File(context.filesDir, "board_$boardCode.png")
     private var boardColor = Color.rgb(26, 66, 47)
+    private val chalkColors = intArrayOf(
+        0xFFFDE7D0.toInt(), 0xFFDBAB7D.toInt(), 0xFFD99858.toInt(), 0xFFB58352.toInt(), 0xFFA4805C.toInt(),
+        0xFFB8C8A4.toInt(), 0xFFC3C7A4.toInt(), 0xFFC7C4A3.toInt(), 0xFFCAC281.toInt(), 0xFF837D41.toInt(),
+        0xFF8DA198.toInt(), 0xFF709B87.toInt(), 0xFF587063.toInt(), 0xFFB0BFB8.toInt(), 0xFFAED5B8.toInt(),
+        0xFF8593AE.toInt(), 0xFFAEBEDF.toInt(), 0xFF92BCD5.toInt(), 0xFF5D668F.toInt(), 0xFF494F67.toInt(),
+        0xFFBF9EA7.toInt(), 0xFFDC8EA6.toInt(), 0xFF936572.toInt(), 0xFFC69A99.toInt(), 0xFFE28A88.toInt(),
+        0xFFF87875.toInt(), 0xFFB7664B.toInt(), 0xFFDA6E54.toInt(), 0xFFB45632.toInt(), 0xFFC2551A.toInt(),
+        Color.WHITE, Color.BLACK
+    )
     private var chalkColor = Color.rgb(243, 238, 213)
     private var erasing = false
     private var strokeDp = 7f
@@ -155,18 +164,48 @@ class DrawingView(
         if (color == boardColor) return
         val pixels = IntArray(bitmap.width * bitmap.height)
         bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
-        for (i in pixels.indices) {
-            val pixel = pixels[i]
-            val distance = kotlin.math.abs(Color.red(pixel) - Color.red(boardColor)) +
-                kotlin.math.abs(Color.green(pixel) - Color.green(boardColor)) +
-                kotlin.math.abs(Color.blue(pixel) - Color.blue(boardColor))
-            if (distance < 100) pixels[i] = color
-        }
+        for (i in pixels.indices) pixels[i] = rebasePixel(pixels[i], boardColor, color)
         boardColor = color
         setBackgroundColor(color)
         bitmap.setPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
         invalidate()
         if (shouldSave) save(false)
+    }
+
+    private fun rebasePixel(pixel: Int, oldBackground: Int, newBackground: Int): Int {
+        val pr = Color.red(pixel).toFloat()
+        val pg = Color.green(pixel).toFloat()
+        val pb = Color.blue(pixel).toFloat()
+        val br = Color.red(oldBackground).toFloat()
+        val bg = Color.green(oldBackground).toFloat()
+        val bb = Color.blue(oldBackground).toFloat()
+        var bestColor = chalkColors[0]
+        var bestAlpha = 0f
+        var bestError = Float.MAX_VALUE
+        for (candidate in chalkColors) {
+            val dr = Color.red(candidate) - br
+            val dg = Color.green(candidate) - bg
+            val db = Color.blue(candidate) - bb
+            val length = dr * dr + dg * dg + db * db
+            if (length < 1f) continue
+            val alpha = (((pr - br) * dr + (pg - bg) * dg + (pb - bb) * db) / length).coerceIn(0f, 1f)
+            val er = pr - (br + alpha * dr)
+            val eg = pg - (bg + alpha * dg)
+            val eb = pb - (bb + alpha * db)
+            val error = er * er + eg * eg + eb * eb
+            if (error < bestError) {
+                bestError = error
+                bestAlpha = alpha
+                bestColor = candidate
+            }
+        }
+        if (bestAlpha < 0.025f) return newBackground
+        val inverse = 1f - bestAlpha
+        return Color.rgb(
+            (Color.red(bestColor) * bestAlpha + Color.red(newBackground) * inverse).toInt().coerceIn(0, 255),
+            (Color.green(bestColor) * bestAlpha + Color.green(newBackground) * inverse).toInt().coerceIn(0, 255),
+            (Color.blue(bestColor) * bestAlpha + Color.blue(newBackground) * inverse).toInt().coerceIn(0, 255)
+        )
     }
 
     fun replaceFromBytes(bytes: ByteArray) {
