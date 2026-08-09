@@ -18,6 +18,7 @@ import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.GridLayout
+import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.ScrollView
@@ -32,6 +33,7 @@ import androidx.credentials.GetCredentialRequest
 import androidx.lifecycle.lifecycleScope
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.android.gms.tasks.Tasks
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
@@ -53,22 +55,7 @@ class MainActivity : ComponentActivity() {
         uri ?: return@registerForActivityResult
         contentResolver.openInputStream(uri)?.use { input ->
             val source = BitmapFactory.decodeStream(input) ?: return@use
-            val width = 480
-            val height = (source.height * width.toFloat() / source.width).toInt()
-            val scaled = android.graphics.Bitmap.createScaledBitmap(source, width, height, true)
-            val bytes = java.io.ByteArrayOutputStream().use {
-                scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, it)
-                it.toByteArray()
-            }
-            if (scaled !== source) scaled.recycle()
-            source.recycle()
-            db.collection("boards").document(code).update("cover", Blob.fromBytes(bytes))
-                .addOnSuccessListener {
-                    java.io.File(filesDir, "cover_$code.jpg").writeBytes(bytes)
-                    BoardWidget.updateAll(this)
-                    toast("칠판 표지를 변경했습니다.")
-                }
-                .addOnFailureListener { toast("칠판 표지를 변경하지 못했습니다.") }
+            showCoverEditor(code, source)
         }
     }
 
@@ -156,13 +143,37 @@ class MainActivity : ComponentActivity() {
         val columns = if (resources.configuration.screenWidthDp >= 600) 6 else 3
         val mine = GridLayout(this).apply { columnCount = columns }
         val shared = GridLayout(this).apply { columnCount = columns }
-        root.addView(sectionTitle("내가 만든 칠판"), LinearLayout.LayoutParams(-1, -2).apply { topMargin = 24.dp })
+        root.addView(LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            addView(sectionTitle("칠판 목록"), LinearLayout.LayoutParams(0, -2, 1f))
+            addView(Button(this@MainActivity).apply {
+                text = "정렬"
+                isAllCaps = false
+                secondaryStyle()
+                setOnClickListener { showSortDialog() }
+            }, LinearLayout.LayoutParams(82.dp, 44.dp))
+        }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 36.dp })
+        root.addView(sectionTitle("내가 만든 칠판"), LinearLayout.LayoutParams(-1, -2).apply { topMargin = 20.dp })
         root.addView(mine, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 8.dp })
         root.addView(sectionTitle("공유받은 칠판"), LinearLayout.LayoutParams(-1, -2).apply { topMargin = 24.dp })
         root.addView(shared, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 8.dp })
-        prefs.getStringSet("codes", emptySet()).orEmpty().sorted().forEach { code ->
-            db.collection("boards").document(code).get().addOnSuccessListener { snapshot ->
-                addBoardCard(if (snapshot.getString("ownerId") == auth.currentUser?.uid) mine else shared, code, columns, snapshot)
+        val codes = prefs.getStringSet("codes", emptySet()).orEmpty()
+        val requests = codes.map { db.collection("boards").document(it).get() }
+        Tasks.whenAllSuccess<DocumentSnapshot>(requests).addOnSuccessListener { snapshots ->
+            val mode = prefs.getString("sortMode", "date_desc")
+            val sorted = when (mode) {
+                "name_asc" -> snapshots.sortedBy { it.getString("name").orEmpty().lowercase() }
+                "name_desc" -> snapshots.sortedByDescending { it.getString("name").orEmpty().lowercase() }
+                "date_asc" -> snapshots.sortedBy { (it.getTimestamp("createdAt") ?: it.getTimestamp("updatedAt"))?.seconds ?: 0L }
+                else -> snapshots.sortedByDescending { (it.getTimestamp("createdAt") ?: it.getTimestamp("updatedAt"))?.seconds ?: 0L }
+            }
+            sorted.forEach { snapshot ->
+                addBoardCard(
+                    if (snapshot.getString("ownerId") == auth.currentUser?.uid) mine else shared,
+                    snapshot.id,
+                    columns,
+                    snapshot
+                )
             }
         }
         val scroll = ScrollView(this).apply {
@@ -190,6 +201,31 @@ class MainActivity : ComponentActivity() {
         text = label
         textSize = 19f
         setTextColor(Color.rgb(31, 31, 31))
+    }
+
+    private fun showSortDialog() {
+        lateinit var dialog: Dialog
+        val choices = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            listOf(
+                "이름 오름차순" to "name_asc",
+                "이름 내림차순" to "name_desc",
+                "생성일 오름차순" to "date_asc",
+                "생성일 내림차순" to "date_desc"
+            ).forEach { (label, mode) ->
+                addView(Button(this@MainActivity).apply {
+                    text = label
+                    isAllCaps = false
+                    secondaryStyle()
+                    setOnClickListener {
+                        prefs.edit().putString("sortMode", mode).apply()
+                        dialog.dismiss()
+                        showBoardChooser()
+                    }
+                }, LinearLayout.LayoutParams(-1, 50.dp).apply { bottomMargin = 8.dp })
+            }
+        }
+        dialog = showRoundDialog("칠판 정렬", choices, "닫기") {}
     }
 
     private fun addBoardCard(root: GridLayout, code: String, columns: Int, snapshot: DocumentSnapshot) {
@@ -285,9 +321,9 @@ class MainActivity : ComponentActivity() {
                 coverBoardCode = code
                 pickCover.launch("image/*")
             }
-            action("칠판 삭제") {
+            if (isOwner) action("칠판 삭제") {
                 dialog.dismiss()
-                confirmRemoveBoard(code, isOwner)
+                confirmRemoveBoard(code)
             }
         }
         dialog = showRoundDialog(currentName, actions, "닫기") {}
@@ -311,13 +347,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun confirmRemoveBoard(code: String, isOwner: Boolean) {
-        val message = if (isOwner) "이 칠판을 모든 참여자에게서 삭제할까요?" else "이 칠판을 내 목록에서 삭제할까요?"
-        showRoundDialog("칠판 삭제", TextView(this).apply { text = message }, "삭제") {
+    private fun confirmRemoveBoard(code: String) {
+        showRoundDialog("칠판 삭제", TextView(this).apply { text = "이 칠판을 모든 참여자에게서 삭제할까요?" }, "삭제") {
             val codes = prefs.getStringSet("codes", emptySet()).orEmpty().toMutableSet().apply { remove(code) }
             prefs.edit().putStringSet("codes", codes).apply()
-            if (isOwner) db.collection("boards").document(code).delete().addOnCompleteListener { showBoardChooser() }
-            else showBoardChooser()
+            db.collection("boards").document(code).delete().addOnCompleteListener { showBoardChooser() }
         }
     }
 
@@ -330,6 +364,7 @@ class MainActivity : ComponentActivity() {
                 "ownerId" to user.uid,
                 "members" to mapOf(user.uid to true),
                 "memberNames" to mapOf(user.uid to memberLabel()),
+                "createdAt" to Timestamp.now(),
                 "updatedAt" to Timestamp.now()
             )
         ).addOnSuccessListener { enterBoard(code) }
@@ -374,18 +409,8 @@ class MainActivity : ComponentActivity() {
         }
         val root = FrameLayout(this).apply { setBackgroundColor(Color.rgb(36, 85, 66)) }
         root.addView(board, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
-        root.addView(makeToolbar(board), FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+        root.addView(makeToolbar(board, code), FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM).apply {
             bottomMargin = 24.dp
-        })
-        root.addView(ImageButton(this).apply {
-            setImageResource(R.drawable.ic_settings)
-            contentDescription = "칠판 설정"
-            setPadding(9.dp, 9.dp, 9.dp, 9.dp)
-            background = rounded(Color.argb(230, 250, 248, 241), 20f)
-            setOnClickListener { showBoardSettings(code) }
-        }, FrameLayout.LayoutParams(42.dp, 42.dp, Gravity.TOP or Gravity.END).apply {
-            topMargin = 16.dp
-            marginEnd = 16.dp
         })
         showContent(root)
 
@@ -412,7 +437,13 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun makeToolbar(board: DrawingView) = LinearLayout(this).apply {
+    private fun makeToolbar(board: DrawingView, code: String) = HorizontalScrollView(this).apply {
+        isHorizontalScrollBarEnabled = false
+        overScrollMode = View.OVER_SCROLL_NEVER
+        addView(makeToolbarContent(board, code))
+    }
+
+    private fun makeToolbarContent(board: DrawingView, code: String) = LinearLayout(this).apply {
         gravity = Gravity.CENTER
         orientation = LinearLayout.HORIZONTAL
         elevation = 10.dp.toFloat()
@@ -514,6 +545,7 @@ class MainActivity : ComponentActivity() {
         addDivider(5, 5)
         addView(toolButton(R.drawable.ic_undo, "작업 되돌리기") { board.undo() })
         addView(toolButton(R.drawable.ic_redo, "작업 다시 하기") { board.redo() })
+        addView(toolButton(R.drawable.ic_settings, "칠판 설정") { showBoardSettings(code) })
     }
 
     private fun LinearLayout.addDivider(start: Int, end: Int) {
@@ -595,6 +627,36 @@ class MainActivity : ComponentActivity() {
             }
             showRoundDialog("칠판 설정", info, "닫기") {}
         }.addOnFailureListener { toast("칠판 설정을 불러오지 못했습니다.") }
+    }
+
+    private fun showCoverEditor(code: String, source: android.graphics.Bitmap) {
+        val editor = CoverCropView(this, source)
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            addView(TextView(this@MainActivity).apply {
+                text = "한 손가락으로 이동하고 두 손가락으로 크기를 조절하세요."
+                textSize = 14f
+                setTextColor(Color.rgb(116, 110, 105))
+            }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 12.dp })
+            addView(editor, LinearLayout.LayoutParams(280.dp, 370.dp))
+        }
+        showRoundDialog("표지 위치 및 크기", content, "저장") {
+            val cover = editor.export()
+            val bytes = java.io.ByteArrayOutputStream().use {
+                cover.compress(android.graphics.Bitmap.CompressFormat.JPEG, 84, it)
+                it.toByteArray()
+            }
+            cover.recycle()
+            source.recycle()
+            db.collection("boards").document(code).update("cover", Blob.fromBytes(bytes))
+                .addOnSuccessListener {
+                    java.io.File(filesDir, "cover_$code.jpg").writeBytes(bytes)
+                    BoardWidget.updateAll(this)
+                    toast("칠판 표지를 변경했습니다.")
+                }
+                .addOnFailureListener { toast("칠판 표지를 변경하지 못했습니다.") }
+        }
     }
 
     private fun showRoundDialog(title: String, content: View, positiveText: String, onPositive: () -> Unit): Dialog {
