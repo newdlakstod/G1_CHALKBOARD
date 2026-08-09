@@ -60,23 +60,34 @@ class WidgetConfigActivity : ComponentActivity() {
                 } ?: "날짜 없음"
                 val title = snapshot.getString("name") ?: code
                 val cardWidth = (resources.displayMetrics.widthPixels - 40.dp - (columns * 6).dp) / columns
-                grid.addView(FrameLayout(this).apply {
-                    background = rounded(Color.rgb(36, 85, 66), 20f)
-                    clipToOutline = true
-                    elevation = 3.dp.toFloat()
-                    addView(ImageView(this@WidgetConfigActivity).apply {
-                        scaleType = ImageView.ScaleType.CENTER_CROP
-                        bytes?.let { setImageBitmap(BitmapFactory.decodeByteArray(it, 0, it.size)) }
-                    }, FrameLayout.LayoutParams(-1, -1))
+                grid.addView(LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(7.dp, 7.dp, 7.dp, 10.dp)
+                    background = rounded(Color.WHITE, 10f)
+                    elevation = 6.dp.toFloat()
+                    clipChildren = false
+                    addView(FrameLayout(this@WidgetConfigActivity).apply {
+                        background = rounded(Color.rgb(26, 66, 47), 5f)
+                        clipToOutline = true
+                        addView(ImageView(this@WidgetConfigActivity).apply {
+                            scaleType = ImageView.ScaleType.CENTER_CROP
+                            bytes?.let { setImageBitmap(BitmapFactory.decodeByteArray(it, 0, it.size)) }
+                        }, FrameLayout.LayoutParams(-1, -1))
+                    }, LinearLayout.LayoutParams(-1, 0, 1f))
                     addView(TextView(this@WidgetConfigActivity).apply {
                         text = title
-                        textSize = if (columns == 6) 12f else 13f
-                        setTextColor(Color.WHITE)
-                        gravity = Gravity.CENTER_VERTICAL
-                        setPadding(10.dp, 5.dp, 10.dp, 5.dp)
+                        textSize = if (columns == 6) 14f else 16f
+                        setTextColor(Color.rgb(31, 31, 31))
+                        maxLines = 1
                         typeface = ResourcesCompat.getFont(this@WidgetConfigActivity, R.font.pretendard_regular)
-                        background = rounded(Color.argb(205, 18, 28, 24), 0f)
-                    }, FrameLayout.LayoutParams(-1, 46.dp, Gravity.BOTTOM))
+                    }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 9.dp })
+                    addView(TextView(this@WidgetConfigActivity).apply {
+                        text = "$date · $creator"
+                        textSize = if (columns == 6) 9f else 10f
+                        setTextColor(Color.rgb(112, 106, 101))
+                        maxLines = 2
+                        typeface = ResourcesCompat.getFont(this@WidgetConfigActivity, R.font.pretendard_regular)
+                    }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 2.dp })
                     setOnClickListener { select(code, bytes, title, "$date · $creator") }
                     setOnTouchListener { target, event ->
                         when (event.actionMasked) {
@@ -88,7 +99,7 @@ class WidgetConfigActivity : ComponentActivity() {
                 }, GridLayout.LayoutParams().apply {
                     width = cardWidth
                     height = (cardWidth * 1.38f).toInt()
-                    setMargins(3.dp, 6.dp, 3.dp, 6.dp)
+                    setMargins(4.dp, 8.dp, 4.dp, 10.dp)
                 })
             }
         }
