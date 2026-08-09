@@ -49,6 +49,16 @@ class WidgetConfigActivity : ComponentActivity() {
         getSharedPreferences("board", MODE_PRIVATE).getStringSet("codes", emptySet()).orEmpty().sorted().forEach { code ->
             db.collection("boards").document(code).get().addOnSuccessListener { snapshot ->
                 val bytes = (snapshot.getBlob("cover") ?: snapshot.getBlob("image"))?.toBytes()
+                @Suppress("UNCHECKED_CAST")
+                val memberNames = snapshot.get("memberNames") as? Map<String, String>
+                val creator = snapshot.getString("ownerName")
+                    ?: memberNames?.get(snapshot.getString("ownerId"))
+                    ?: "알 수 없음"
+                val createdAt = snapshot.getTimestamp("createdAt") ?: snapshot.getTimestamp("updatedAt")
+                val date = createdAt?.toDate()?.let {
+                    java.text.SimpleDateFormat("yyyy.MM.dd", java.util.Locale.KOREA).format(it)
+                } ?: "날짜 없음"
+                val title = snapshot.getString("name") ?: code
                 val cardWidth = (resources.displayMetrics.widthPixels - 40.dp - (columns * 6).dp) / columns
                 grid.addView(FrameLayout(this).apply {
                     background = rounded(Color.rgb(36, 85, 66), 20f)
@@ -59,7 +69,7 @@ class WidgetConfigActivity : ComponentActivity() {
                         bytes?.let { setImageBitmap(BitmapFactory.decodeByteArray(it, 0, it.size)) }
                     }, FrameLayout.LayoutParams(-1, -1))
                     addView(TextView(this@WidgetConfigActivity).apply {
-                        text = snapshot.getString("name") ?: code
+                        text = title
                         textSize = if (columns == 6) 12f else 13f
                         setTextColor(Color.WHITE)
                         gravity = Gravity.CENTER_VERTICAL
@@ -67,7 +77,7 @@ class WidgetConfigActivity : ComponentActivity() {
                         typeface = ResourcesCompat.getFont(this@WidgetConfigActivity, R.font.pretendard_regular)
                         background = rounded(Color.argb(205, 18, 28, 24), 0f)
                     }, FrameLayout.LayoutParams(-1, 46.dp, Gravity.BOTTOM))
-                    setOnClickListener { select(code, bytes) }
+                    setOnClickListener { select(code, bytes, title, "$date · $creator") }
                     setOnTouchListener { target, event ->
                         when (event.actionMasked) {
                             MotionEvent.ACTION_DOWN -> target.animate().scaleX(0.96f).scaleY(0.96f).setDuration(90).start()
@@ -84,9 +94,13 @@ class WidgetConfigActivity : ComponentActivity() {
         }
     }
 
-    private fun select(code: String, bytes: ByteArray?) {
-        getSharedPreferences("widgets", MODE_PRIVATE).edit().putString("board_$widgetId", code).apply()
-        val file = File(filesDir, "widget_$widgetId.jpg")
+    private fun select(code: String, bytes: ByteArray?, title: String, meta: String) {
+        getSharedPreferences("polaroid_widgets", MODE_PRIVATE).edit()
+            .putString("board_$widgetId", code)
+            .putString("title_$widgetId", title)
+            .putString("meta_$widgetId", meta)
+            .apply()
+        val file = File(filesDir, "polaroid_widget_$widgetId.jpg")
         if (bytes == null) file.delete() else file.writeBytes(bytes)
         BoardWidget.update(this, AppWidgetManager.getInstance(this), widgetId)
         setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))

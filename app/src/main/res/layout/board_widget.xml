@@ -1,27 +1,46 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_board"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_chalkboard"
+    android:orientation="vertical"
+    android:background="@drawable/widget_polaroid"
     android:clickable="true"
-    android:contentDescription="우리 그림판 열기"
-    android:padding="13dp">
+    android:contentDescription="선택한 칠판 열기"
+    android:elevation="6dp"
+    android:padding="7dp">
 
     <ImageView
         android:id="@+id/widget_drawing"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:contentDescription="공유 그림"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="#1A422F"
+        android:contentDescription="칠판 표지"
         android:scaleType="centerCrop" />
 
     <TextView
-        android:id="@+id/widget_hint"
+        android:id="@+id/widget_title"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:fontFamily="casual"
-        android:gravity="center"
-        android:text="칠판 표지를 설정해 주세요"
-        android:textColor="#EEE9D2"
-        android:textSize="17sp" />
-</FrameLayout>
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:ellipsize="end"
+        android:fontFamily="@font/pretendard_regular"
+        android:maxLines="1"
+        android:text="칠판을 선택하세요"
+        android:textColor="#1F1F1F"
+        android:textSize="15sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/widget_meta"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:ellipsize="end"
+        android:fontFamily="@font/pretendard_regular"
+        android:maxLines="1"
+        android:text="생성일 · 생성자"
+        android:textColor="#706A65"
+        android:textSize="10sp" />
+</LinearLayout>

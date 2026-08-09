@@ -7,7 +7,6 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.graphics.BitmapFactory
-import android.view.View
 import android.widget.RemoteViews
 import java.io.File
 
@@ -18,8 +17,9 @@ class BoardWidget : AppWidgetProvider() {
 
     override fun onDeleted(context: Context, ids: IntArray) {
         ids.forEach {
-            context.getSharedPreferences("widgets", Context.MODE_PRIVATE).edit().remove("board_$it").apply()
-            File(context.filesDir, "widget_$it.jpg").delete()
+            context.getSharedPreferences("polaroid_widgets", Context.MODE_PRIVATE).edit()
+                .remove("board_$it").remove("title_$it").remove("meta_$it").apply()
+            File(context.filesDir, "polaroid_widget_$it.jpg").delete()
         }
     }
 
@@ -35,12 +35,15 @@ class BoardWidget : AppWidgetProvider() {
         }
 
         private fun views(context: Context, id: Int): RemoteViews {
-            val code = context.getSharedPreferences("widgets", Context.MODE_PRIVATE).getString("board_$id", null)
+            val code = context.getSharedPreferences("polaroid_widgets", Context.MODE_PRIVATE).getString("board_$id", null)
             val currentCover = code?.let { File(context.filesDir, "cover_$it.jpg") }
-            val selectedThumbnail = File(context.filesDir, "widget_$id.jpg")
+            val selectedThumbnail = File(context.filesDir, "polaroid_widget_$id.jpg")
             val image = listOfNotNull(currentCover, selectedThumbnail).firstOrNull { it.exists() }?.let {
                 BitmapFactory.decodeFile(it.path)
             }
+            val preferences = context.getSharedPreferences("polaroid_widgets", Context.MODE_PRIVATE)
+            val title = preferences.getString("title_$id", "칠판을 선택하세요")
+            val meta = preferences.getString("meta_$id", "생성일 · 생성자")
             val openApp = PendingIntent.getActivity(
                 context,
                 id,
@@ -48,9 +51,9 @@ class BoardWidget : AppWidgetProvider() {
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             return RemoteViews(context.packageName, R.layout.board_widget).apply {
-                setViewVisibility(R.id.widget_drawing, if (image == null) View.GONE else View.VISIBLE)
-                setViewVisibility(R.id.widget_hint, if (image == null) View.VISIBLE else View.GONE)
                 image?.let { setImageViewBitmap(R.id.widget_drawing, it) }
+                setTextViewText(R.id.widget_title, title)
+                setTextViewText(R.id.widget_meta, meta)
                 setOnClickPendingIntent(R.id.widget_board, openApp)
             }
         }
