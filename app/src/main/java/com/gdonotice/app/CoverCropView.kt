@@ -8,6 +8,7 @@ import android.graphics.Paint
 import android.view.MotionEvent
 import android.view.View
 import kotlin.math.hypot
+import kotlin.math.atan2
 
 class CoverCropView(context: Context, private val source: Bitmap) : View(context) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
@@ -17,6 +18,8 @@ class CoverCropView(context: Context, private val source: Bitmap) : View(context
     private var lastX = 0f
     private var lastY = 0f
     private var lastDistance = 0f
+    private var rotation = 0f
+    private var lastAngle = 0f
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         if (oldw != 0 || w == 0 || h == 0) return
@@ -30,6 +33,7 @@ class CoverCropView(context: Context, private val source: Bitmap) : View(context
         canvas.save()
         canvas.translate(offsetX, offsetY)
         canvas.scale(scale, scale)
+        canvas.rotate(rotation, source.width / 2f, source.height / 2f)
         canvas.drawBitmap(source, 0f, 0f, paint)
         canvas.restore()
     }
@@ -42,6 +46,7 @@ class CoverCropView(context: Context, private val source: Bitmap) : View(context
             }
             MotionEvent.ACTION_POINTER_DOWN -> if (event.pointerCount >= 2) {
                 lastDistance = distance(event)
+                lastAngle = angle(event)
             }
             MotionEvent.ACTION_MOVE -> if (event.pointerCount >= 2) {
                 val distance = distance(event)
@@ -53,6 +58,9 @@ class CoverCropView(context: Context, private val source: Bitmap) : View(context
                     offsetY = centerY - (centerY - offsetY) * next / scale
                     scale = next
                 }
+                val angle = angle(event)
+                rotation += ((angle - lastAngle + 540f) % 360f) - 180f
+                lastAngle = angle
                 lastDistance = distance
             } else {
                 offsetX += event.x - lastX
@@ -74,10 +82,14 @@ class CoverCropView(context: Context, private val source: Bitmap) : View(context
             scale(factor, factor)
             translate(offsetX, offsetY)
             scale(scale, scale)
+            rotate(rotation, source.width / 2f, source.height / 2f)
             drawBitmap(source, 0f, 0f, paint)
         }
         return result
     }
 
     private fun distance(event: MotionEvent) = hypot(event.getX(0) - event.getX(1), event.getY(0) - event.getY(1))
+    private fun angle(event: MotionEvent) = Math.toDegrees(
+        atan2(event.getY(1) - event.getY(0), event.getX(1) - event.getX(0)).toDouble()
+    ).toFloat()
 }

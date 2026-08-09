@@ -160,7 +160,7 @@ class DrawingView(
             val distance = kotlin.math.abs(Color.red(pixel) - Color.red(boardColor)) +
                 kotlin.math.abs(Color.green(pixel) - Color.green(boardColor)) +
                 kotlin.math.abs(Color.blue(pixel) - Color.blue(boardColor))
-            if (distance < 55) pixels[i] = color
+            if (distance < 100) pixels[i] = color
         }
         boardColor = color
         setBackgroundColor(color)
@@ -264,7 +264,7 @@ class DrawingView(
     }
 
     private fun snapshot(): ByteArray = ByteArrayOutputStream().use {
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 82, it)
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 94, it)
         it.toByteArray()
     }
 

@@ -129,6 +129,8 @@ class MainActivity : ComponentActivity() {
         val root = centeredColumn().apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             setPadding(20.dp, 30.dp, 20.dp, 30.dp)
+            clipChildren = false
+            clipToPadding = false
         }
         root.addView(TextView(this).apply {
             text = "Hi, ${auth.currentUser?.displayName ?: auth.currentUser?.email?.substringBefore('@') ?: "친구"}"
@@ -141,17 +143,26 @@ class MainActivity : ComponentActivity() {
             setTextColor(Color.rgb(116, 110, 105))
         }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 6.dp })
         val columns = if (resources.configuration.screenWidthDp >= 600) 6 else 3
-        val mine = GridLayout(this).apply { columnCount = columns }
-        val shared = GridLayout(this).apply { columnCount = columns }
+        val mine = GridLayout(this).apply {
+            columnCount = columns
+            clipChildren = false
+            clipToPadding = false
+        }
+        val shared = GridLayout(this).apply {
+            columnCount = columns
+            clipChildren = false
+            clipToPadding = false
+        }
         root.addView(LinearLayout(this).apply {
-            gravity = Gravity.CENTER_VERTICAL
-            addView(sectionTitle("칠판 목록"), LinearLayout.LayoutParams(0, -2, 1f))
-            addView(Button(this@MainActivity).apply {
-                text = "정렬"
-                isAllCaps = false
-                secondaryStyle()
+            gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            addView(ImageButton(this@MainActivity).apply {
+                setImageResource(R.drawable.ic_sort)
+                contentDescription = "칠판 정렬"
+                setPadding(11.dp, 11.dp, 11.dp, 11.dp)
+                background = rounded(Color.WHITE, 999f)
+                elevation = 2.dp.toFloat()
                 setOnClickListener { showSortDialog() }
-            }, LinearLayout.LayoutParams(82.dp, 44.dp))
+            }, LinearLayout.LayoutParams(46.dp, 46.dp))
         }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 36.dp })
         root.addView(sectionTitle("내가 만든 칠판"), LinearLayout.LayoutParams(-1, -2).apply { topMargin = 20.dp })
         root.addView(mine, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 8.dp })
@@ -178,6 +189,7 @@ class MainActivity : ComponentActivity() {
         }
         val scroll = ScrollView(this).apply {
             isFillViewport = true
+            clipToPadding = false
             addView(root)
         }
         showContent(FrameLayout(this).apply {
@@ -253,8 +265,8 @@ class MainActivity : ComponentActivity() {
             orientation = LinearLayout.VERTICAL
             setPadding(7.dp, 7.dp, 7.dp, 10.dp)
             background = rounded(Color.WHITE, 10f)
-            elevation = 10.dp.toFloat()
-            translationZ = 2.dp.toFloat()
+            elevation = 6.dp.toFloat()
+            translationZ = 0f
             clipChildren = false
             addView(FrameLayout(this@MainActivity).apply {
                 background = rounded(Color.rgb(26, 66, 47), 5f)
@@ -464,8 +476,11 @@ class MainActivity : ComponentActivity() {
 
     private fun makeToolbar(board: DrawingView, code: String) = HorizontalScrollView(this).apply {
         isHorizontalScrollBarEnabled = false
+        isFillViewport = true
         overScrollMode = View.OVER_SCROLL_NEVER
-        addView(makeToolbarContent(board, code))
+        val content = makeToolbarContent(board, code)
+        addView(content, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+        post { scrollTo(maxOf(0, (content.width - width) / 2), 0) }
     }
 
     private fun makeToolbarContent(board: DrawingView, code: String) = LinearLayout(this).apply {
@@ -688,7 +703,7 @@ class MainActivity : ComponentActivity() {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             addView(TextView(this@MainActivity).apply {
-                text = "한 손가락으로 이동하고 두 손가락으로 크기를 조절하세요."
+                text = "한 손가락으로 이동하고 두 손가락으로 크기와 회전을 조절하세요."
                 textSize = 14f
                 setTextColor(Color.rgb(116, 110, 105))
             }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 12.dp })
