@@ -9,6 +9,7 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
@@ -238,7 +239,7 @@ class MainActivity : ComponentActivity() {
         }
         val codeInput = EditText(this).apply {
             hint = "초대코드로 입장"
-            gravity = Gravity.CENTER
+            gravity = Gravity.CENTER_VERTICAL or Gravity.START
             setSingleLine()
             background = rounded(Color.WHITE, 30f)
             setPadding(18.dp, 0, 18.dp, 0)
@@ -600,7 +601,7 @@ class MainActivity : ComponentActivity() {
         val dialog = Dialog(this)
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(24.dp, 22.dp, 24.dp, 18.dp)
+            setPadding(20.dp, 22.dp, 20.dp, 18.dp)
             background = rounded(Color.rgb(250, 248, 241), 24f)
             addView(TextView(this@MainActivity).apply {
                 text = title
@@ -610,12 +611,15 @@ class MainActivity : ComponentActivity() {
             addView(content, LinearLayout.LayoutParams(-1, -2))
             addView(LinearLayout(this@MainActivity).apply {
                 gravity = Gravity.END
+                clipChildren = false
+                clipToPadding = false
+                setPadding(0, 6.dp, 0, 8.dp)
                 if (positiveText != "닫기") addView(Button(this@MainActivity).apply {
                     text = "닫기"
                     isAllCaps = false
                     secondaryStyle()
                     setOnClickListener { dialog.dismiss() }
-                })
+                }, LinearLayout.LayoutParams(0, 52.dp, 1f).apply { marginEnd = 7.dp })
                 addView(Button(this@MainActivity).apply {
                     text = positiveText
                     isAllCaps = false
@@ -624,8 +628,10 @@ class MainActivity : ComponentActivity() {
                         dialog.dismiss()
                         onPositive()
                     }
+                }, LinearLayout.LayoutParams(0, 52.dp, 1f).apply {
+                    if (positiveText != "닫기") marginStart = 7.dp
                 })
-            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 18.dp })
+            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 14.dp })
         }
         dialog.setContentView(card)
         applyPretendard(card)
@@ -635,7 +641,8 @@ class MainActivity : ComponentActivity() {
             attributes = attributes.apply { dimAmount = 0.42f }
         }
         dialog.setOnShowListener {
-            dialog.window?.setLayout(minOf(resources.displayMetrics.widthPixels - 32.dp, 430.dp), WindowManager.LayoutParams.WRAP_CONTENT)
+            val maxWidth = if (resources.configuration.screenWidthDp >= 600) 420.dp else 360.dp
+            dialog.window?.setLayout(minOf(resources.displayMetrics.widthPixels - 64.dp, maxWidth), WindowManager.LayoutParams.WRAP_CONTENT)
         }
         dialog.show()
         return dialog
@@ -691,7 +698,20 @@ class MainActivity : ComponentActivity() {
 
     private fun applyPretendard(view: View) {
         if (view is TextView) view.typeface = pretendard
+        if (view is EditText) view.gravity = Gravity.CENTER_VERTICAL or Gravity.START
+        if (view.isClickable && view !is EditText) applyPressAnimation(view)
         if (view is android.view.ViewGroup) repeat(view.childCount) { applyPretendard(view.getChildAt(it)) }
+    }
+
+    private fun applyPressAnimation(view: View) {
+        view.setOnTouchListener { target, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> target.animate().scaleX(0.96f).scaleY(0.96f).alpha(0.88f).setDuration(90).start()
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                    target.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(130).start()
+            }
+            false
+        }
     }
     private val Int.dp: Int get() = (this * resources.displayMetrics.density).toInt()
 }
