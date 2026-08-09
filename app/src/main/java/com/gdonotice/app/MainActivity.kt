@@ -682,7 +682,8 @@ class MainActivity : ComponentActivity() {
                         "칠판색" to 0xFF1A422F.toInt()
                     ).forEach { (label, color) ->
                         addView(Button(this@MainActivity).apply {
-                            text = label
+                            text = ""
+                            contentDescription = "$label 배경색"
                             textSize = 13f
                             isAllCaps = false
                             setTextColor(if (color == 0xFF2E2E2E.toInt() || color == 0xFF1A422F.toInt()) Color.WHITE else Color.BLACK)
