@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "570076391296",
+    "project_id": "gdo-chalkboard",
+    "storage_bucket": "gdo-chalkboard.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:570076391296:android:262108a75bec542e93c365",
+        "android_client_info": {
+          "package_name": "com.gdonotice.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAsEpVloZdxTEdw9rrsf1HLfN_yYzQgOJg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

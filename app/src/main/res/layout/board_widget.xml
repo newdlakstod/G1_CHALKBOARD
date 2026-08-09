@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_board"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_chalkboard"
+    android:clickable="true"
+    android:contentDescription="우리 그림판 열기"
+    android:padding="13dp">
+
+    <ImageView
+        android:id="@+id/widget_drawing"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:contentDescription="공유 그림"
+        android:scaleType="fitCenter" />
+
+    <TextView
+        android:id="@+id/widget_hint"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:fontFamily="casual"
+        android:gravity="center"
+        android:text="눌러서 그림을 그려요"
+        android:textColor="#EEE9D2"
+        android:textSize="17sp" />
+</FrameLayout>
