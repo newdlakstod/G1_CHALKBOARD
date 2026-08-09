@@ -269,18 +269,18 @@ class DrawingView(
         val directionY = if (distance == 0f) 0f else (toY - fromY) / distance
         val normalX = -directionY
         val normalY = directionX
-        val grains = maxOf(6, (strokeDp * 2.2f).toInt())
+        val grains = maxOf(9, (strokeDp * 3.5f).toInt())
         repeat(steps) { step ->
             val progress = step.toFloat() / steps
             val x = fromX + (toX - fromX) * progress
             val y = fromY + (toY - fromY) * progress
             repeat(grains) {
-                if (Random.nextFloat() >= 0.18f) {
+                if (Random.nextFloat() >= 0.06f) {
                     val side = (Random.nextFloat() * 2f - 1f) * strokeDp * density
                     val along = (Random.nextFloat() * 2f - 1f) * 1.4f * density
                     val grainX = x + normalX * side + directionX * along
                     val grainY = y + normalY * side + directionY * along
-                    paint.alpha = Random.nextInt(45, 220)
+                    paint.alpha = Random.nextInt(80, 246)
                     paint.strokeWidth = Random.nextFloat() * 0.55f * density + 0.22f * density
                     val length = Random.nextFloat() * 1.8f * density + 0.25f * density
                     board.drawLine(

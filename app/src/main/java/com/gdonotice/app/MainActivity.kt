@@ -197,12 +197,13 @@ class MainActivity : ComponentActivity() {
             addView(scroll, FrameLayout.LayoutParams(-1, -1))
             addView(Button(this@MainActivity).apply {
                 text = "+"
-                textSize = 40f
+                textSize = 80f
+                includeFontPadding = false
                 contentDescription = "칠판 추가"
-                setPadding(0, 0, 0, 2.dp)
+                setPadding(0, 0, 0, 8.dp)
                 primaryStyle()
                 setOnClickListener { showAddBoardDialog() }
-            }, FrameLayout.LayoutParams(58.dp, 58.dp, Gravity.BOTTOM or Gravity.END).apply {
+            }, FrameLayout.LayoutParams(84.dp, 84.dp, Gravity.BOTTOM or Gravity.END).apply {
                 marginEnd = 22.dp
                 bottomMargin = 24.dp
             })
