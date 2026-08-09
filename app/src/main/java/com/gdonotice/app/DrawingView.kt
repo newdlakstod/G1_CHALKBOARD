@@ -25,6 +25,7 @@ class DrawingView(
     private val boardWidth = 1239
     private val boardHeight = 819
     private val file = File(context.filesDir, "board_$boardCode.png")
+    private var boardColor = Color.rgb(26, 66, 47)
     private var chalkColor = Color.rgb(243, 238, 213)
     private var erasing = false
     private var strokeDp = 7f
@@ -47,11 +48,11 @@ class DrawingView(
     private val redoHistory = ArrayDeque<ByteArray>()
 
     init {
-        setBackgroundColor(Color.rgb(36, 85, 66))
+        setBackgroundColor(boardColor)
         contentDescription = "손가락으로 그리는 칠판"
         bitmap = Bitmap.createBitmap(boardWidth, boardHeight, Bitmap.Config.ARGB_8888)
         board = Canvas(bitmap).apply {
-            drawColor(Color.rgb(36, 85, 66))
+            drawColor(boardColor)
             if (file.exists()) BitmapFactory.decodeFile(file.path)?.let {
                 drawBitmap(it, null, Rect(0, 0, bitmap.width, bitmap.height), null)
                 it.recycle()
@@ -132,7 +133,7 @@ class DrawingView(
     fun clear() {
         if (!::board.isInitialized) return
         remember()
-        board.drawColor(Color.rgb(36, 85, 66))
+        board.drawColor(boardColor)
         invalidate()
         save(true)
     }
@@ -150,10 +151,28 @@ class DrawingView(
         strokeDp = widthDp
     }
 
+    fun setBoardBackgroundColor(color: Int, shouldSave: Boolean) {
+        if (color == boardColor) return
+        val pixels = IntArray(bitmap.width * bitmap.height)
+        bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        for (i in pixels.indices) {
+            val pixel = pixels[i]
+            val distance = kotlin.math.abs(Color.red(pixel) - Color.red(boardColor)) +
+                kotlin.math.abs(Color.green(pixel) - Color.green(boardColor)) +
+                kotlin.math.abs(Color.blue(pixel) - Color.blue(boardColor))
+            if (distance < 55) pixels[i] = color
+        }
+        boardColor = color
+        setBackgroundColor(color)
+        bitmap.setPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+        invalidate()
+        if (shouldSave) save(false)
+    }
+
     fun replaceFromBytes(bytes: ByteArray) {
         if (!::board.isInitialized) return
         val remote = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return
-        board.drawColor(Color.rgb(36, 85, 66))
+        board.drawColor(boardColor)
         board.drawBitmap(remote, null, Rect(0, 0, bitmap.width, bitmap.height), null)
         remote.recycle()
         FileOutputStream(file).use { it.write(bytes) }
@@ -170,8 +189,9 @@ class DrawingView(
         bitmap.getPixels(local, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
         for (i in pixels.indices) {
             val color = pixels[i]
-            val distance = kotlin.math.abs(Color.red(color) - 36) +
-                kotlin.math.abs(Color.green(color) - 85) + kotlin.math.abs(Color.blue(color) - 66)
+            val distance = kotlin.math.abs(Color.red(color) - Color.red(boardColor)) +
+                kotlin.math.abs(Color.green(color) - Color.green(boardColor)) +
+                kotlin.math.abs(Color.blue(color) - Color.blue(boardColor))
             if (distance > 45) local[i] = color
         }
         bitmap.setPixels(local, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
@@ -194,7 +214,7 @@ class DrawingView(
 
     private fun drawChalk(fromX: Float, fromY: Float, toX: Float, toY: Float) {
         if (erasing) {
-            paint.color = Color.rgb(36, 85, 66)
+            paint.color = boardColor
             paint.alpha = 255
             paint.strokeWidth = 30f * resources.displayMetrics.density / coverScale()
             board.drawLine(fromX, fromY, toX, toY, paint)
@@ -250,7 +270,7 @@ class DrawingView(
 
     private fun restore(bytes: ByteArray) {
         val source = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return
-        board.drawColor(Color.rgb(36, 85, 66))
+        board.drawColor(boardColor)
         board.drawBitmap(source, null, Rect(0, 0, bitmap.width, bitmap.height), null)
         source.recycle()
         invalidate()

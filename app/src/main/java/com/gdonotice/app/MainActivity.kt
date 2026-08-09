@@ -231,35 +231,55 @@ class MainActivity : ComponentActivity() {
     private fun addBoardCard(root: GridLayout, code: String, columns: Int, snapshot: DocumentSnapshot) {
         val thumbnail = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
-            setBackgroundColor(Color.rgb(36, 85, 66))
+            setBackgroundColor(Color.rgb(26, 66, 47))
         }
         val title = TextView(this).apply {
-            text = "칠판 $code"
-            textSize = if (columns == 6) 12f else 13f
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(12.dp, 8.dp, 42.dp, 8.dp)
-            background = rounded(Color.argb(205, 18, 28, 24), 0f)
+            text = snapshot.getString("name") ?: "칠판 $code"
+            textSize = if (columns == 6) 12f else 14f
+            setTextColor(Color.rgb(31, 31, 31))
+            setTypeface(pretendard, Typeface.BOLD)
+            maxLines = 1
         }
-        val card = FrameLayout(this).apply {
-            background = rounded(Color.WHITE, 22f)
-            elevation = 4.dp.toFloat()
-            clipToOutline = true
-            addView(thumbnail, FrameLayout.LayoutParams(-1, -1))
-            addView(title, FrameLayout.LayoutParams(-1, 52.dp, Gravity.BOTTOM))
+        @Suppress("UNCHECKED_CAST")
+        val memberNames = snapshot.get("memberNames") as? Map<String, String>
+        val creator = snapshot.getString("ownerName")
+            ?: memberNames?.get(snapshot.getString("ownerId"))
+            ?: "알 수 없음"
+        val createdAt = snapshot.getTimestamp("createdAt") ?: snapshot.getTimestamp("updatedAt")
+        val date = createdAt?.toDate()?.let {
+            java.text.SimpleDateFormat("yyyy.MM.dd", java.util.Locale.KOREA).format(it)
+        } ?: "날짜 없음"
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(7.dp, 7.dp, 7.dp, 10.dp)
+            background = rounded(Color.WHITE, 10f)
+            elevation = 10.dp.toFloat()
+            translationZ = 2.dp.toFloat()
+            clipChildren = false
+            addView(FrameLayout(this@MainActivity).apply {
+                background = rounded(Color.rgb(26, 66, 47), 5f)
+                clipToOutline = true
+                addView(thumbnail, FrameLayout.LayoutParams(-1, -1))
+            }, LinearLayout.LayoutParams(-1, 0, 1f))
+            addView(title, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 9.dp })
+            addView(TextView(this@MainActivity).apply {
+                text = "$date · $creator"
+                textSize = if (columns == 6) 9f else 10f
+                setTextColor(Color.rgb(112, 106, 101))
+                maxLines = 2
+            }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 2.dp })
             setOnClickListener { enterBoard(code) }
             setOnLongClickListener {
                 showBoardActions(code, title.text.toString(), snapshot.getString("ownerId") == auth.currentUser?.uid)
                 true
             }
         }
-        val cardWidth = (resources.displayMetrics.widthPixels - 40.dp - (columns * 6).dp) / columns
+        val cardWidth = (resources.displayMetrics.widthPixels - 40.dp - (columns * 8).dp) / columns
         root.addView(card, GridLayout.LayoutParams().apply {
             width = cardWidth
-            height = (cardWidth * 1.32f).toInt()
-            setMargins(3.dp, 6.dp, 3.dp, 6.dp)
+            height = (cardWidth * 1.38f).toInt()
+            setMargins(4.dp, 8.dp, 4.dp, 10.dp)
         })
-        title.text = snapshot.getString("name") ?: "칠판 $code"
         (snapshot.getBlob("cover") ?: snapshot.getBlob("image"))?.toBytes()?.let { bytes ->
             BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.let(thumbnail::setImageBitmap)
             if (snapshot.getBlob("cover") != null) java.io.File(filesDir, "cover_$code.jpg").writeBytes(bytes)
@@ -362,8 +382,10 @@ class MainActivity : ComponentActivity() {
             mapOf(
                 "name" to name,
                 "ownerId" to user.uid,
+                "ownerName" to memberLabel(),
                 "members" to mapOf(user.uid to true),
                 "memberNames" to mapOf(user.uid to memberLabel()),
+                "backgroundColor" to 0xFF1A422F,
                 "createdAt" to Timestamp.now(),
                 "updatedAt" to Timestamp.now()
             )
@@ -417,13 +439,16 @@ class MainActivity : ComponentActivity() {
         var firstSnapshot = true
         document.addSnapshotListener { snapshot, error ->
             if (error != null) return@addSnapshotListener toast("동기화 연결을 확인해 주세요.")
-            if (snapshot?.getString("updatedBy") == auth.currentUser?.uid) return@addSnapshotListener
-            snapshot?.getBlob("image")?.toBytes()?.let {
-                val wasCleared = snapshot.getTimestamp("clearedAt") == snapshot.getTimestamp("updatedAt")
-                if (firstSnapshot || wasCleared) board.replaceFromBytes(it) else board.mergeFromBytes(it)
-                firstSnapshot = false
-                BoardWidget.updateAll(this)
+            if (snapshot?.getString("updatedBy") != auth.currentUser?.uid) {
+                snapshot?.getBlob("image")?.toBytes()?.let {
+                    val wasCleared = snapshot.getTimestamp("clearedAt") == snapshot.getTimestamp("updatedAt")
+                    if (firstSnapshot || wasCleared) board.replaceFromBytes(it) else board.mergeFromBytes(it)
+                    firstSnapshot = false
+                    BoardWidget.updateAll(this)
+                }
             }
+            val background = snapshot?.getLong("backgroundColor")?.toInt() ?: 0xFF1A422F.toInt()
+            board.setBoardBackgroundColor(background, false)
         }
     }
 
@@ -545,7 +570,7 @@ class MainActivity : ComponentActivity() {
         addDivider(5, 5)
         addView(toolButton(R.drawable.ic_undo, "작업 되돌리기") { board.undo() })
         addView(toolButton(R.drawable.ic_redo, "작업 다시 하기") { board.redo() })
-        addView(toolButton(R.drawable.ic_settings, "칠판 설정") { showBoardSettings(code) })
+        addView(toolButton(R.drawable.ic_settings, "칠판 설정") { showBoardSettings(code, board) })
     }
 
     private fun LinearLayout.addDivider(start: Int, end: Int) {
@@ -600,7 +625,7 @@ class MainActivity : ComponentActivity() {
         popup.showAtLocation(anchor, Gravity.CENTER, 0, 0)
     }
 
-    private fun showBoardSettings(code: String) {
+    private fun showBoardSettings(code: String, board: DrawingView) {
         db.collection("boards").document(code).get().addOnSuccessListener { snapshot ->
             @Suppress("UNCHECKED_CAST")
             val names = (snapshot.get("memberNames") as? Map<String, String>)?.values.orEmpty()
@@ -624,6 +649,34 @@ class MainActivity : ComponentActivity() {
                         pickCover.launch("image/*")
                     }
                 }, LinearLayout.LayoutParams(-1, 50.dp).apply { topMargin = 14.dp })
+                addView(TextView(this@MainActivity).apply {
+                    text = "칠판 배경색"
+                    textSize = 16f
+                    setTextColor(Color.rgb(45, 52, 49))
+                }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 18.dp })
+                addView(LinearLayout(this@MainActivity).apply {
+                    gravity = Gravity.CENTER
+                    listOf(
+                        "상아색" to 0xFFEFE9DE.toInt(),
+                        "진회색" to 0xFF2E2E2E.toInt(),
+                        "칠판색" to 0xFF1A422F.toInt()
+                    ).forEach { (label, color) ->
+                        addView(Button(this@MainActivity).apply {
+                            text = label
+                            textSize = 13f
+                            isAllCaps = false
+                            setTextColor(if (color == 0xFF2E2E2E.toInt() || color == 0xFF1A422F.toInt()) Color.WHITE else Color.BLACK)
+                            background = rounded(color, 999f)
+                            setOnClickListener {
+                                db.collection("boards").document(code).update("backgroundColor", color.toLong())
+                                board.setBoardBackgroundColor(color, true)
+                            }
+                        }, LinearLayout.LayoutParams(0, 48.dp, 1f).apply {
+                            marginStart = 4.dp
+                            marginEnd = 4.dp
+                        })
+                    }
+                }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 8.dp })
             }
             showRoundDialog("칠판 설정", info, "닫기") {}
         }.addOnFailureListener { toast("칠판 설정을 불러오지 못했습니다.") }
@@ -759,7 +812,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun applyPretendard(view: View) {
-        if (view is TextView) view.typeface = pretendard
+        if (view is TextView) view.typeface = Typeface.create(pretendard, view.typeface?.style ?: Typeface.NORMAL)
         if (view is EditText) view.gravity = Gravity.CENTER_VERTICAL or Gravity.START
         if (view.isClickable && view !is EditText) applyPressAnimation(view)
         if (view is android.view.ViewGroup) repeat(view.childCount) { applyPretendard(view.getChildAt(it)) }
