@@ -263,28 +263,34 @@ class DrawingView(
         // Keep the original screen-space chalk texture even when the fixed board is cropped/scaled.
         val density = resources.displayMetrics.density / coverScale()
         paint.color = chalkColor
-        paint.alpha = 28
-        paint.strokeWidth = strokeDp * 1.85f * density
-        board.drawLine(fromX, fromY, toX, toY, paint)
-        paint.alpha = 90
-        paint.strokeWidth = maxOf(0.8f, strokeDp * 0.23f) * density
-        board.drawLine(fromX, fromY, toX, toY, paint)
-
         val distance = hypot(toX - fromX, toY - fromY)
-        val steps = maxOf(1, (distance / (2f * density)).toInt())
+        val steps = maxOf(1, (distance / (1.35f * density)).toInt())
+        val directionX = if (distance == 0f) 0f else (toX - fromX) / distance
+        val directionY = if (distance == 0f) 0f else (toY - fromY) / distance
+        val normalX = -directionY
+        val normalY = directionX
+        val grains = maxOf(6, (strokeDp * 2.2f).toInt())
         repeat(steps) { step ->
             val progress = step.toFloat() / steps
             val x = fromX + (toX - fromX) * progress
             val y = fromY + (toY - fromY) * progress
-            repeat(5) {
-                val spread = strokeDp * density
-                paint.alpha = Random.nextInt(55, 210)
-                board.drawCircle(
-                    x + Random.nextFloat() * spread * 2 - spread,
-                    y + Random.nextFloat() * spread * 2 - spread,
-                    Random.nextFloat() * strokeDp * 0.18f * density + 0.25f * density,
-                    paint
-                )
+            repeat(grains) {
+                if (Random.nextFloat() >= 0.18f) {
+                    val side = (Random.nextFloat() * 2f - 1f) * strokeDp * density
+                    val along = (Random.nextFloat() * 2f - 1f) * 1.4f * density
+                    val grainX = x + normalX * side + directionX * along
+                    val grainY = y + normalY * side + directionY * along
+                    paint.alpha = Random.nextInt(45, 220)
+                    paint.strokeWidth = Random.nextFloat() * 0.55f * density + 0.22f * density
+                    val length = Random.nextFloat() * 1.8f * density + 0.25f * density
+                    board.drawLine(
+                        grainX,
+                        grainY,
+                        grainX + directionX * length,
+                        grainY + directionY * length,
+                        paint
+                    )
+                }
             }
         }
     }
