@@ -20,6 +20,10 @@ class DrawingView(
     boardCode: String,
     private val onSaved: (ByteArray, Boolean) -> Unit
 ) : View(context) {
+    // The shared board always keeps the unfolded Fold's landscape ratio.
+    // A folded cover screen crops this canvas; it never rotates or stretches it.
+    private val boardWidth = 1239
+    private val boardHeight = 819
     private val file = File(context.filesDir, "board_$boardCode.png")
     private var chalkColor = Color.rgb(243, 238, 213)
     private var erasing = false
@@ -45,7 +49,7 @@ class DrawingView(
     init {
         setBackgroundColor(Color.rgb(36, 85, 66))
         contentDescription = "손가락으로 그리는 칠판"
-        bitmap = Bitmap.createBitmap(819, 1239, Bitmap.Config.ARGB_8888)
+        bitmap = Bitmap.createBitmap(boardWidth, boardHeight, Bitmap.Config.ARGB_8888)
         board = Canvas(bitmap).apply {
             drawColor(Color.rgb(36, 85, 66))
             if (file.exists()) BitmapFactory.decodeFile(file.path)?.let {
