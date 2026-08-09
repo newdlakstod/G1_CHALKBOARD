@@ -24,7 +24,10 @@ class BoardWidget : AppWidgetProvider() {
         }
 
         private fun views(context: Context): RemoteViews {
-            val image = File(context.filesDir, "board.png").takeIf { it.exists() }?.let {
+            val code = context.getSharedPreferences("board", Context.MODE_PRIVATE).getString("widgetCode", null)
+            val cover = code?.let { File(context.filesDir, "cover_$it.jpg") }
+            val drawing = code?.let { File(context.filesDir, "board_$it.png") }
+            val image = listOfNotNull(cover, drawing).firstOrNull { it.exists() }?.let {
                 BitmapFactory.decodeFile(it.path)
             }
             val openApp = PendingIntent.getActivity(
