@@ -190,12 +190,13 @@ class DrawingView(
         if (erasing) {
             paint.color = Color.rgb(36, 85, 66)
             paint.alpha = 255
-            paint.strokeWidth = 30f * resources.displayMetrics.density
+            paint.strokeWidth = 30f * resources.displayMetrics.density / coverScale()
             board.drawLine(fromX, fromY, toX, toY, paint)
             return
         }
 
-        val density = resources.displayMetrics.density
+        // Keep the original screen-space chalk texture even when the fixed board is cropped/scaled.
+        val density = resources.displayMetrics.density / coverScale()
         paint.color = chalkColor
         paint.alpha = 28
         paint.strokeWidth = strokeDp * 1.85f * density
