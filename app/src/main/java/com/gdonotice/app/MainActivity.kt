@@ -197,13 +197,14 @@ class MainActivity : ComponentActivity() {
             addView(scroll, FrameLayout.LayoutParams(-1, -1))
             addView(Button(this@MainActivity).apply {
                 text = "+"
-                textSize = 80f
+                textSize = 60f
                 includeFontPadding = false
+                gravity = Gravity.CENTER
                 contentDescription = "칠판 추가"
-                setPadding(0, 0, 0, 8.dp)
+                setPadding(0, 0, 0, 3.dp)
                 primaryStyle()
                 setOnClickListener { showAddBoardDialog() }
-            }, FrameLayout.LayoutParams(84.dp, 84.dp, Gravity.BOTTOM or Gravity.END).apply {
+            }, FrameLayout.LayoutParams(58.dp, 58.dp, Gravity.BOTTOM or Gravity.END).apply {
                 marginEnd = 22.dp
                 bottomMargin = 24.dp
             })
@@ -477,7 +478,7 @@ class MainActivity : ComponentActivity() {
 
     private fun makeToolbar(board: DrawingView, code: String) = HorizontalScrollView(this).apply {
         isHorizontalScrollBarEnabled = false
-        isFillViewport = true
+        isFillViewport = false
         overScrollMode = View.OVER_SCROLL_NEVER
         val content = makeToolbarContent(board, code)
         addView(content, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
@@ -489,7 +490,7 @@ class MainActivity : ComponentActivity() {
         orientation = LinearLayout.HORIZONTAL
         elevation = 10.dp.toFloat()
         setPadding(10.dp, 6.dp, 10.dp, 6.dp)
-        background = rounded(Color.argb(248, 31, 31, 31), 8f)
+        background = rounded(Color.argb(248, 31, 31, 31), 999f)
 
         val palette = listOf(
             0xFFFDE7D0.toInt(), 0xFFDBAB7D.toInt(), 0xFFD99858.toInt(), 0xFFB58352.toInt(), 0xFFA4805C.toInt(),
@@ -614,14 +615,12 @@ class MainActivity : ComponentActivity() {
         colors.forEachIndexed { index, color ->
             grid.addView(FrameLayout(this).apply {
                 contentDescription = "팔레트 색상"
-                addView(View(this@MainActivity).apply {
-                    background = paletteSwatch(color, color == current)
-                    rotation = listOf(-5f, 3f, -2f, 4f, -4f)[index % 5]
+                addView(PaletteBlobView(this@MainActivity, color, index, color == current).apply {
                     setOnClickListener {
                         onSelected(color)
                         popup.dismiss()
                     }
-                }, FrameLayout.LayoutParams((42 + index % 4).dp, (44 + (index * 3) % 5).dp, Gravity.CENTER))
+                }, FrameLayout.LayoutParams(48.dp, 48.dp, Gravity.CENTER))
             }, GridLayout.LayoutParams().apply {
                 width = 58.dp
                 height = 58.dp
@@ -788,12 +787,6 @@ class MainActivity : ComponentActivity() {
         shape = GradientDrawable.OVAL
         setColor(color)
         setStroke((if (selected) 4 else 1).dp, if (selected) Color.WHITE else Color.TRANSPARENT)
-    }
-
-    private fun paletteSwatch(color: Int, selected: Boolean) = GradientDrawable().apply {
-        shape = GradientDrawable.OVAL
-        setColor(color)
-        setStroke((if (selected) 3 else 0).dp, Color.rgb(31, 31, 31))
     }
 
     private fun centeredColumn() = LinearLayout(this).apply {
