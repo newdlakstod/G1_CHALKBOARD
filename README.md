@@ -4,6 +4,8 @@
 
 ## 다운로드
 
-[최신 APK 다운로드](../../releases/latest)
+[최신 APK 다운로드](https://github.com/newdlakstod/G1_CHALKBOARD/releases/latest)
 
 다운로드한 `G1_CHALKBOARD-debug.apk`를 Android 기기에서 열어 설치하세요. Play 스토어 외부 앱 설치 허용이 필요할 수 있습니다.
+
+버전별 변경사항은 [CHANGELOG.md](CHANGELOG.md)에서 확인할 수 있습니다.
