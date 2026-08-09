@@ -1,9 +1,10 @@
 <resources>
     <style name="Theme.GdoNotice" parent="android:style/Theme.Material.Light.NoActionBar">
-        <item name="android:fontFamily">sans</item>
-        <item name="android:colorAccent">#315C49</item>
-        <item name="android:navigationBarColor">#F5F2EA</item>
-        <item name="android:statusBarColor">#F5F2EA</item>
+        <item name="android:fontFamily">@font/pretendard_regular</item>
+        <item name="android:windowBackground">#F3F0ED</item>
+        <item name="android:colorAccent">#FFBC35</item>
+        <item name="android:navigationBarColor">#F3F0ED</item>
+        <item name="android:statusBarColor">#F3F0ED</item>
         <item name="android:windowLightStatusBar">true</item>
     </style>
 </resources>

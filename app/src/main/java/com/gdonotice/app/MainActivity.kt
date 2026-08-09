@@ -96,12 +96,13 @@ class MainActivity : ComponentActivity() {
         root.addView(TextView(this).apply {
             text = "G1_CHALKBOARD"
             textSize = 28f
-            setTextColor(Color.WHITE)
+            setTextColor(Color.rgb(31, 31, 31))
             gravity = Gravity.CENTER
         })
         root.addView(Button(this).apply {
             text = "Google로 로그인"
             isAllCaps = false
+            primaryStyle()
             setOnClickListener { signInWithGoogle() }
         }, LinearLayout.LayoutParams(-1, 54.dp).apply { topMargin = 28.dp })
         showContent(root)
@@ -137,29 +138,38 @@ class MainActivity : ComponentActivity() {
             setPadding(20.dp, 30.dp, 20.dp, 30.dp)
         }
         root.addView(TextView(this).apply {
-            text = auth.currentUser?.email ?: "로그인됨"
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
-        })
+            text = "Hi, ${auth.currentUser?.displayName ?: auth.currentUser?.email?.substringBefore('@') ?: "친구"}"
+            textSize = 28f
+            setTextColor(Color.rgb(31, 31, 31))
+            gravity = Gravity.START
+        }, LinearLayout.LayoutParams(-1, -2))
+        root.addView(TextView(this).apply {
+            text = "함께 그리는 나의 칠판"
+            textSize = 15f
+            setTextColor(Color.rgb(116, 110, 105))
+        }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 6.dp })
         val grid = GridLayout(this).apply { columnCount = 2 }
         prefs.getStringSet("codes", emptySet()).orEmpty().sorted().forEach { code -> addBoardCard(grid, code) }
         root.addView(grid, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 18.dp })
         root.addView(Button(this).apply {
             text = "새 공유 칠판 만들기"
             isAllCaps = false
+            primaryStyle()
             setOnClickListener { askBoardName() }
         }, LinearLayout.LayoutParams(-1, 54.dp).apply { topMargin = 20.dp })
         val codeInput = EditText(this).apply {
             hint = "초대 코드 입력"
             gravity = Gravity.CENTER
-            setTextColor(Color.WHITE)
-            setHintTextColor(Color.LTGRAY)
+            setTextColor(Color.rgb(31, 31, 31))
+            setHintTextColor(Color.rgb(130, 125, 120))
+            background = rounded(Color.WHITE, 18f)
             setSingleLine()
         }
         root.addView(codeInput, LinearLayout.LayoutParams(-1, 54.dp).apply { topMargin = 12.dp })
         root.addView(Button(this).apply {
             text = "공유 칠판 참가"
             isAllCaps = false
+            secondaryStyle()
             setOnClickListener { joinBoard(codeInput.text.toString()) }
         }, LinearLayout.LayoutParams(-1, 54.dp))
         showContent(ScrollView(this).apply {
@@ -182,7 +192,7 @@ class MainActivity : ComponentActivity() {
             background = rounded(Color.argb(205, 18, 28, 24), 0f)
         }
         val card = FrameLayout(this).apply {
-            background = rounded(Color.rgb(249, 247, 239), 18f)
+            background = rounded(Color.WHITE, 22f)
             elevation = 4.dp.toFloat()
             clipToOutline = true
             addView(thumbnail, FrameLayout.LayoutParams(-1, -1))
@@ -501,6 +511,7 @@ class MainActivity : ComponentActivity() {
                 addView(Button(this@MainActivity).apply {
                     text = "칠판 표지 변경"
                     isAllCaps = false
+                    primaryStyle()
                     setOnClickListener {
                         coverBoardCode = code
                         pickCover.launch("image/*")
@@ -568,7 +579,20 @@ class MainActivity : ComponentActivity() {
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
         setPadding(42.dp, 42.dp, 42.dp, 42.dp)
-        setBackgroundColor(Color.rgb(36, 85, 66))
+        setBackgroundColor(Color.rgb(243, 240, 237))
+    }
+
+    private fun Button.primaryStyle() {
+        setTextColor(Color.rgb(31, 31, 31))
+        textSize = 16f
+        elevation = 2.dp.toFloat()
+        background = rounded(Color.rgb(255, 188, 53), 20f)
+    }
+
+    private fun Button.secondaryStyle() {
+        setTextColor(Color.rgb(31, 31, 31))
+        textSize = 16f
+        background = rounded(Color.WHITE, 20f)
     }
 
     private fun rounded(color: Int, radiusDp: Float) = GradientDrawable().apply {
