@@ -224,12 +224,15 @@ class MainActivity : ComponentActivity() {
         currentBoardCode = code
         val document = db.collection("boards").document(code)
         lateinit var board: DrawingView
-        board = DrawingView(this) { bytes ->
+        board = DrawingView(this, code) { bytes, cleared ->
             BoardWidget.updateAll(this)
             val user = auth.currentUser ?: return@DrawingView
-            document.update(
-                mapOf("image" to Blob.fromBytes(bytes), "updatedAt" to Timestamp.now(), "updatedBy" to user.uid)
-            ).addOnFailureListener { toast("그림을 동기화하지 못했습니다.") }
+            val now = Timestamp.now()
+            val update = mutableMapOf<String, Any>(
+                "image" to Blob.fromBytes(bytes), "updatedAt" to now, "updatedBy" to user.uid
+            )
+            if (cleared) update["clearedAt"] = now
+            document.update(update).addOnFailureListener { toast("그림을 동기화하지 못했습니다.") }
         }
         val root = FrameLayout(this).apply { setBackgroundColor(Color.rgb(36, 85, 66)) }
         root.addView(board, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
@@ -265,7 +268,8 @@ class MainActivity : ComponentActivity() {
             if (error != null) return@addSnapshotListener toast("동기화 연결을 확인해 주세요.")
             if (snapshot?.getString("updatedBy") == auth.currentUser?.uid) return@addSnapshotListener
             snapshot?.getBlob("image")?.toBytes()?.let {
-                if (firstSnapshot) board.replaceFromBytes(it) else board.mergeFromBytes(it)
+                val wasCleared = snapshot.getTimestamp("clearedAt") == snapshot.getTimestamp("updatedAt")
+                if (firstSnapshot || wasCleared) board.replaceFromBytes(it) else board.mergeFromBytes(it)
                 firstSnapshot = false
                 BoardWidget.updateAll(this)
             }
