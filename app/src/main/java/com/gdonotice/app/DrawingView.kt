@@ -82,20 +82,22 @@ class DrawingView(
                 lastY = point.second
             }
             MotionEvent.ACTION_POINTER_DOWN -> if (event.pointerCount >= 2) {
-                panning = true
+                panning = !isExpanded()
                 drawing = false
                 lastCenterX = (event.getX(0) + event.getX(1)) / 2f
                 lastCenterY = (event.getY(0) + event.getY(1)) / 2f
             }
             MotionEvent.ACTION_MOVE -> {
                 if (event.pointerCount >= 2) {
-                    val centerX = (event.getX(0) + event.getX(1)) / 2f
-                    val centerY = (event.getY(0) + event.getY(1)) / 2f
-                    panX += centerX - lastCenterX
-                    panY += centerY - lastCenterY
-                    lastCenterX = centerX
-                    lastCenterY = centerY
-                    constrainPan()
+                    if (!isExpanded()) {
+                        val centerX = (event.getX(0) + event.getX(1)) / 2f
+                        val centerY = (event.getY(0) + event.getY(1)) / 2f
+                        panX += centerX - lastCenterX
+                        panY += centerY - lastCenterY
+                        lastCenterX = centerX
+                        lastCenterY = centerY
+                        constrainPan()
+                    }
                 } else if (!panning) {
                     if (!drawing) remember()
                     drawing = true
@@ -255,7 +257,13 @@ class DrawingView(
         save(false)
     }
 
-    private fun coverScale() = maxOf(width.toFloat() / bitmap.width, height.toFloat() / bitmap.height)
+    private fun coverScale() = if (isExpanded()) {
+        minOf(width.toFloat() / bitmap.width, height.toFloat() / bitmap.height)
+    } else {
+        maxOf(width.toFloat() / bitmap.width, height.toFloat() / bitmap.height)
+    }
+
+    private fun isExpanded() = resources.configuration.screenWidthDp >= 600
 
     private fun boardPoint(x: Float, y: Float): Pair<Float, Float> {
         val scale = coverScale()
@@ -267,6 +275,11 @@ class DrawingView(
 
     private fun constrainPan() {
         if (width == 0 || height == 0) return
+        if (isExpanded()) {
+            panX = 0f
+            panY = 0f
+            return
+        }
         val scale = coverScale()
         val limitX = maxOf(0f, (bitmap.width * scale - width) / 2f)
         val limitY = maxOf(0f, (bitmap.height * scale - height) / 2f)

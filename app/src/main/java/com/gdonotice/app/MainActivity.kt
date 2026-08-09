@@ -354,7 +354,7 @@ class MainActivity : ComponentActivity() {
 
     private fun enterBoard(code: String) {
         val codes = prefs.getStringSet("codes", emptySet()).orEmpty().toMutableSet().apply { add(code) }
-        prefs.edit().putString("code", code).putString("widgetCode", code).putStringSet("codes", codes).apply()
+        prefs.edit().putString("code", code).putStringSet("codes", codes).apply()
         showBoard(code)
     }
 
