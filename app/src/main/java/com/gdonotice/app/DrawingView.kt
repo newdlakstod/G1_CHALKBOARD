@@ -28,6 +28,8 @@ class DrawingView(context: Context, private val onSaved: (ByteArray) -> Unit) : 
     private lateinit var board: Canvas
     private var lastX = 0f
     private var lastY = 0f
+    private val undoHistory = ArrayDeque<ByteArray>()
+    private val redoHistory = ArrayDeque<ByteArray>()
 
     init {
         setBackgroundColor(Color.rgb(36, 85, 66))
@@ -53,6 +55,7 @@ class DrawingView(context: Context, private val onSaved: (ByteArray) -> Unit) : 
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
                 parent.requestDisallowInterceptTouchEvent(true)
+                remember()
                 lastX = event.x
                 lastY = event.y
             }
@@ -80,6 +83,7 @@ class DrawingView(context: Context, private val onSaved: (ByteArray) -> Unit) : 
 
     fun clear() {
         if (!::board.isInitialized) return
+        remember()
         board.drawColor(Color.rgb(36, 85, 66))
         invalidate()
         save()
@@ -106,6 +110,18 @@ class DrawingView(context: Context, private val onSaved: (ByteArray) -> Unit) : 
         remote.recycle()
         FileOutputStream(file).use { it.write(bytes) }
         invalidate()
+    }
+
+    fun undo() {
+        if (undoHistory.isEmpty()) return
+        redoHistory.addLast(snapshot())
+        restore(undoHistory.removeLast())
+    }
+
+    fun redo() {
+        if (redoHistory.isEmpty()) return
+        undoHistory.addLast(snapshot())
+        restore(redoHistory.removeLast())
     }
 
     private fun drawChalk(fromX: Float, fromY: Float, toX: Float, toY: Float) {
@@ -146,10 +162,29 @@ class DrawingView(context: Context, private val onSaved: (ByteArray) -> Unit) : 
     }
 
     private fun save() {
-        val output = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 82, output)
-        val bytes = output.toByteArray()
+        val bytes = snapshot()
         FileOutputStream(file).use { it.write(bytes) }
         onSaved(bytes)
+    }
+
+    private fun remember() {
+        if (!::bitmap.isInitialized) return
+        undoHistory.addLast(snapshot())
+        while (undoHistory.size > 20) undoHistory.removeFirst()
+        redoHistory.clear()
+    }
+
+    private fun snapshot(): ByteArray = ByteArrayOutputStream().use {
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 82, it)
+        it.toByteArray()
+    }
+
+    private fun restore(bytes: ByteArray) {
+        val source = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return
+        board.drawColor(Color.rgb(36, 85, 66))
+        board.drawBitmap(source, null, android.graphics.Rect(0, 0, width, height), null)
+        source.recycle()
+        invalidate()
+        save()
     }
 }

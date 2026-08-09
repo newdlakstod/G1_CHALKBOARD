@@ -12,10 +12,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageButton
-import android.widget.GridLayout
 import android.widget.LinearLayout
-import android.widget.PopupWindow
-import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -203,129 +200,100 @@ class MainActivity : ComponentActivity() {
         gravity = Gravity.CENTER
         orientation = LinearLayout.HORIZONTAL
         elevation = 10.dp.toFloat()
-        setPadding(10.dp, 8.dp, 10.dp, 8.dp)
-        background = rounded(Color.argb(235, 250, 248, 241), 24f)
+        setPadding(10.dp, 6.dp, 10.dp, 6.dp)
+        background = rounded(Color.argb(248, 31, 31, 31), 8f)
 
-        var selectedColor = Color.rgb(243, 238, 213)
-        lateinit var eraser: View
-        val colorButton = View(this@MainActivity).apply {
-            contentDescription = "분필 색상 선택"
-            background = swatch(selectedColor, true)
-            setOnClickListener { anchor ->
-                showPalette(anchor, selectedColor) { color ->
-                    selectedColor = color
+        val colors = listOf(
+            Color.rgb(190, 48, 28), Color.rgb(43, 112, 104), Color.rgb(190, 224, 237),
+            Color.rgb(17, 58, 130), Color.rgb(102, 45, 145)
+        )
+        board.setColor(colors.first())
+        val colorButtons = mutableListOf<View>()
+        lateinit var eraser: ImageButton
+        colors.forEachIndexed { index, color ->
+            val dot = View(this@MainActivity).apply {
+                contentDescription = "분필 색상 ${index + 1}"
+                background = swatch(color, index == 0)
+                setOnClickListener {
                     board.setColor(color)
-                    background = swatch(color, true)
-                    eraser.alpha = 0.62f
+                    colorButtons.forEachIndexed { i, button -> button.background = swatch(colors[i], button === this) }
+                    eraser.alpha = 0.55f
+                }
+            }
+            colorButtons += dot
+            addView(dot, LinearLayout.LayoutParams(34.dp, 34.dp).apply { marginEnd = 7.dp })
+        }
+
+        addDivider(3, 7)
+        var lastEraserTap = 0L
+        eraser = ImageButton(this@MainActivity).apply {
+            setImageResource(R.drawable.ic_eraser)
+            setBackgroundColor(Color.TRANSPARENT)
+            contentDescription = "지우개, 두 번 누르면 전체 삭제"
+            setPadding(8.dp, 8.dp, 8.dp, 8.dp)
+            alpha = 0.55f
+            setOnClickListener {
+                val now = System.currentTimeMillis()
+                if (now - lastEraserTap < 350) {
+                    AlertDialog.Builder(this@MainActivity).setMessage("그림을 모두 지울까요?")
+                        .setNegativeButton("취소", null)
+                        .setPositiveButton("전체 지우기") { _, _ -> board.clear() }.show()
+                    lastEraserTap = 0L
+                } else {
+                    board.setEraser()
+                    colorButtons.forEachIndexed { i, button -> button.background = swatch(colors[i], false) }
+                    alpha = 1f
+                    lastEraserTap = now
                 }
             }
         }
-        addView(colorButton, LinearLayout.LayoutParams(36.dp, 36.dp).apply { marginEnd = 10.dp })
-        addDivider(2, 9)
-        eraser = LinearLayout(this@MainActivity).apply {
-            orientation = LinearLayout.VERTICAL
-            rotation = -12f
-            contentDescription = "부분 지우개"
-            background = rounded(Color.rgb(219, 195, 156), 5f)
-            addView(View(this@MainActivity).apply { setBackgroundColor(Color.rgb(225, 207, 177)) }, LinearLayout.LayoutParams(-1, 0, 0.58f))
-            addView(View(this@MainActivity).apply { setBackgroundColor(Color.rgb(112, 72, 48)) }, LinearLayout.LayoutParams(-1, 0, 0.42f))
-            alpha = 0.62f
-            setOnClickListener {
-                board.setEraser()
-                alpha = 1f
-            }
-        }
-        addView(eraser, LinearLayout.LayoutParams(35.dp, 27.dp).apply { marginEnd = 10.dp })
-        addDivider(0, 7)
+        addView(eraser, LinearLayout.LayoutParams(40.dp, 40.dp).apply { marginEnd = 5.dp })
+
+        addDivider(2, 5)
         val widths = listOf(2.5f, 4.5f, 7f)
-        val widthButtons = mutableListOf<TextView>()
+        val widthButtons = mutableListOf<View>()
         widths.forEachIndexed { index, width ->
-            val line = TextView(this@MainActivity).apply {
-                text = "—"
-                gravity = Gravity.CENTER
-                textSize = 11f + index * 5f
-                setTextColor(Color.rgb(35, 48, 42))
+            val holder = FrameLayout(this@MainActivity).apply {
                 contentDescription = "분필 두께 ${index + 1}단계"
-                alpha = if (index == 2) 1f else 0.42f
+                alpha = if (index == 2) 1f else 0.45f
+                addView(View(this@MainActivity).apply {
+                    background = rounded(Color.WHITE, 8f)
+                }, FrameLayout.LayoutParams(34.dp, (2 + index * 2).dp, Gravity.CENTER))
                 setOnClickListener {
                     board.setStrokeWidth(width)
-                    widthButtons.forEach { it.alpha = 0.42f }
+                    widthButtons.forEach { it.alpha = 0.45f }
                     alpha = 1f
                 }
             }
-            widthButtons += line
-            addView(line, LinearLayout.LayoutParams(31.dp, 30.dp))
+            widthButtons += holder
+            addView(holder, LinearLayout.LayoutParams(42.dp, 40.dp))
         }
+
         addDivider(5, 5)
-        addView(ImageButton(this@MainActivity).apply {
-            setImageResource(R.drawable.ic_delete_all)
-            setBackgroundColor(Color.TRANSPARENT)
-            contentDescription = "전체 지우기"
-            setPadding(7.dp, 7.dp, 7.dp, 7.dp)
-            setOnClickListener {
-                AlertDialog.Builder(this@MainActivity).setMessage("그림을 모두 지울까요?")
-                    .setNegativeButton("취소", null).setPositiveButton("전체 지우기") { _, _ -> board.clear() }.show()
-            }
-        }, LinearLayout.LayoutParams(36.dp, 36.dp))
+        addView(toolButton(R.drawable.ic_undo, "작업 되돌리기") { board.undo() })
+        addView(toolButton(R.drawable.ic_redo, "작업 다시 하기") { board.redo() })
     }
 
     private fun LinearLayout.addDivider(start: Int, end: Int) {
-        addView(View(this@MainActivity).apply { setBackgroundColor(Color.LTGRAY) }, LinearLayout.LayoutParams(1.dp, 24.dp).apply {
+        addView(View(this@MainActivity).apply { setBackgroundColor(Color.rgb(105, 105, 105)) }, LinearLayout.LayoutParams(1.dp, 28.dp).apply {
             marginStart = start.dp
             marginEnd = end.dp
         })
     }
 
-    private fun showPalette(anchor: View, current: Int, onSelected: (Int) -> Unit) {
-        val colors = buildList {
-            repeat(10) { level ->
-                val value = 1f - level * 0.09f
-                add(Color.HSVToColor(floatArrayOf(0f, 0f, value)))
-            }
-            repeat(5) { band ->
-                repeat(18) { hue ->
-                    add(Color.HSVToColor(floatArrayOf(hue * 20f, 0.48f + band * 0.11f, 1f - band * 0.09f)))
-                }
-            }
-        }
-        val grid = GridLayout(this).apply {
-            columnCount = 10
-            setPadding(12.dp, 12.dp, 12.dp, 12.dp)
-            colors.forEach { color ->
-                addView(View(this@MainActivity).apply {
-                    contentDescription = "색상 선택"
-                    background = swatch(color, color == current)
-                }, GridLayout.LayoutParams().apply {
-                    width = 34.dp
-                    height = 34.dp
-                    setMargins(3.dp, 3.dp, 3.dp, 3.dp)
-                })
-            }
-        }
-        lateinit var popup: PopupWindow
-        val scroll = ScrollView(this).apply {
-            background = rounded(Color.argb(250, 30, 34, 32), 18f)
-            addView(grid)
-        }
-        popup = PopupWindow(scroll, minOf(resources.displayMetrics.widthPixels - 24.dp, 420.dp), minOf(resources.displayMetrics.heightPixels / 2, 440.dp), true).apply {
-            elevation = 16.dp.toFloat()
-            setBackgroundDrawable(GradientDrawable().apply { setColor(Color.TRANSPARENT) })
-            isOutsideTouchable = true
-        }
-        grid.children().forEach { cell -> cell.setOnClickListener {
-            val index = grid.indexOfChild(cell)
-            onSelected(colors[index])
-            popup.dismiss()
-        } }
-        popup.showAtLocation(anchor, Gravity.CENTER, 0, 0)
+    private fun toolButton(icon: Int, description: String, action: () -> Unit) = ImageButton(this).apply {
+        setImageResource(icon)
+        setBackgroundColor(Color.TRANSPARENT)
+        contentDescription = description
+        setPadding(8.dp, 8.dp, 8.dp, 8.dp)
+        setOnClickListener { action() }
+        layoutParams = LinearLayout.LayoutParams(40.dp, 40.dp)
     }
-
-    private fun GridLayout.children() = (0 until childCount).map(::getChildAt)
 
     private fun swatch(color: Int, selected: Boolean) = GradientDrawable().apply {
         shape = GradientDrawable.OVAL
         setColor(color)
-        setStroke((if (selected) 4 else 1).dp, if (selected) Color.WHITE else Color.rgb(80, 80, 80))
+        setStroke((if (selected) 4 else 1).dp, if (selected) Color.WHITE else Color.TRANSPARENT)
     }
 
     private fun centeredColumn() = LinearLayout(this).apply {
