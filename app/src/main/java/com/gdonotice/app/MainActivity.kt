@@ -12,7 +12,10 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageButton
+import android.widget.GridLayout
 import android.widget.LinearLayout
+import android.widget.PopupWindow
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -34,6 +37,7 @@ class MainActivity : ComponentActivity() {
     private val auth by lazy { FirebaseAuth.getInstance() }
     private val db by lazy { FirebaseFirestore.getInstance() }
     private val prefs by lazy { getSharedPreferences("board", MODE_PRIVATE) }
+    private var currentBoardCode: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -100,12 +104,20 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun showBoardChooser() {
+        currentBoardCode = null
         val root = centeredColumn()
         root.addView(TextView(this).apply {
             text = auth.currentUser?.email ?: "로그인됨"
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
         })
+        prefs.getStringSet("codes", emptySet()).orEmpty().sorted().forEach { code ->
+            root.addView(Button(this).apply {
+                text = "칠판  $code"
+                isAllCaps = false
+                setOnClickListener { enterBoard(code) }
+            }, LinearLayout.LayoutParams(-1, 48.dp).apply { topMargin = 8.dp })
+        }
         root.addView(Button(this).apply {
             text = "새 공유 칠판 만들기"
             isAllCaps = false
@@ -124,7 +136,10 @@ class MainActivity : ComponentActivity() {
             isAllCaps = false
             setOnClickListener { joinBoard(codeInput.text.toString()) }
         }, LinearLayout.LayoutParams(-1, 54.dp))
-        setContentView(root)
+        setContentView(ScrollView(this).apply {
+            isFillViewport = true
+            addView(root)
+        })
     }
 
     private fun createBoard() {
@@ -153,11 +168,13 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun enterBoard(code: String) {
-        prefs.edit().putString("code", code).apply()
+        val codes = prefs.getStringSet("codes", emptySet()).orEmpty().toMutableSet().apply { add(code) }
+        prefs.edit().putString("code", code).putStringSet("codes", codes).apply()
         showBoard(code)
     }
 
     private fun showBoard(code: String) {
+        currentBoardCode = code
         val document = db.collection("boards").document(code)
         lateinit var board: DrawingView
         board = DrawingView(this) { bytes ->
@@ -186,13 +203,25 @@ class MainActivity : ComponentActivity() {
         }, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = 18.dp })
         setContentView(root)
 
+        var firstSnapshot = true
         document.addSnapshotListener { snapshot, error ->
             if (error != null) return@addSnapshotListener toast("동기화 연결을 확인해 주세요.")
             if (snapshot?.getString("updatedBy") == auth.currentUser?.uid) return@addSnapshotListener
             snapshot?.getBlob("image")?.toBytes()?.let {
-                board.replaceFromBytes(it)
+                if (firstSnapshot) board.replaceFromBytes(it) else board.mergeFromBytes(it)
+                firstSnapshot = false
                 BoardWidget.updateAll(this)
             }
+        }
+    }
+
+    @Deprecated("Android back compatibility")
+    override fun onBackPressed() {
+        if (currentBoardCode != null) {
+            prefs.edit().remove("code").apply()
+            showBoardChooser()
+        } else {
+            super.onBackPressed()
         }
     }
 
@@ -203,19 +232,45 @@ class MainActivity : ComponentActivity() {
         setPadding(10.dp, 6.dp, 10.dp, 6.dp)
         background = rounded(Color.argb(248, 31, 31, 31), 8f)
 
-        val colors = listOf(
-            Color.rgb(190, 48, 28), Color.rgb(43, 112, 104), Color.rgb(190, 224, 237),
-            Color.rgb(17, 58, 130), Color.rgb(102, 45, 145)
+        val palette = listOf(
+            0xFFFDE7D0.toInt(), 0xFFDBAB7D.toInt(), 0xFFD99858.toInt(), 0xFFB58352.toInt(), 0xFFA4805C.toInt(),
+            0xFFB8C8A4.toInt(), 0xFFC3C7A4.toInt(), 0xFFC7C4A3.toInt(), 0xFFCAC281.toInt(), 0xFF837D41.toInt(),
+            0xFF8DA198.toInt(), 0xFF709B87.toInt(), 0xFF587063.toInt(), 0xFFB0BFB8.toInt(), 0xFFAED5B8.toInt(),
+            0xFF8593AE.toInt(), 0xFFAEBEDF.toInt(), 0xFF92BCD5.toInt(), 0xFF5D668F.toInt(), 0xFF494F67.toInt(),
+            0xFFBF9EA7.toInt(), 0xFFDC8EA6.toInt(), 0xFF936572.toInt(), 0xFFC69A99.toInt(), 0xFFE28A88.toInt(),
+            0xFFF87875.toInt(), 0xFFB7664B.toInt(), 0xFFDA6E54.toInt(), 0xFFB45632.toInt(), 0xFFC2551A.toInt()
         )
+        val colors = mutableListOf(palette[0], palette[6], palette[11], palette[17], palette[25])
         board.setColor(colors.first())
+        var selectedColor = colors.first()
+        var selectedIndex = 0
         val colorButtons = mutableListOf<View>()
         lateinit var eraser: ImageButton
+        val chalk = toolButton(R.drawable.ic_chalk, "분필, 길게 눌러 30색 팔레트") {
+            board.setColor(selectedColor)
+            eraser.alpha = 0.55f
+        }.apply {
+            setOnLongClickListener {
+                showPalette(this, palette, selectedColor) { color ->
+                    selectedColor = color
+                    colors[selectedIndex] = color
+                    board.setColor(color)
+                    colorButtons.forEachIndexed { i, button -> button.background = swatch(colors[i], i == selectedIndex) }
+                    eraser.alpha = 0.55f
+                }
+                true
+            }
+        }
+        addView(chalk)
+        addDivider(3, 7)
         colors.forEachIndexed { index, color ->
             val dot = View(this@MainActivity).apply {
                 contentDescription = "분필 색상 ${index + 1}"
                 background = swatch(color, index == 0)
                 setOnClickListener {
-                    board.setColor(color)
+                    selectedIndex = index
+                    selectedColor = colors[index]
+                    board.setColor(selectedColor)
                     colorButtons.forEachIndexed { i, button -> button.background = swatch(colors[i], button === this) }
                     eraser.alpha = 0.55f
                 }
@@ -288,6 +343,38 @@ class MainActivity : ComponentActivity() {
         setPadding(8.dp, 8.dp, 8.dp, 8.dp)
         setOnClickListener { action() }
         layoutParams = LinearLayout.LayoutParams(40.dp, 40.dp)
+    }
+
+    private fun showPalette(anchor: View, colors: List<Int>, current: Int, onSelected: (Int) -> Unit) {
+        val grid = GridLayout(this).apply {
+            columnCount = 5
+            setPadding(14.dp, 14.dp, 14.dp, 14.dp)
+        }
+        lateinit var popup: PopupWindow
+        colors.forEach { color ->
+            grid.addView(View(this).apply {
+                contentDescription = "팔레트 색상"
+                background = swatch(color, color == current)
+                setOnClickListener {
+                    onSelected(color)
+                    popup.dismiss()
+                }
+            }, GridLayout.LayoutParams().apply {
+                width = 46.dp
+                height = 46.dp
+                setMargins(5.dp, 5.dp, 5.dp, 5.dp)
+            })
+        }
+        val scroll = ScrollView(this).apply {
+            background = rounded(Color.argb(252, 31, 31, 31), 14f)
+            addView(grid)
+        }
+        popup = PopupWindow(scroll, 310.dp, minOf(resources.displayMetrics.heightPixels - 80.dp, 390.dp), true).apply {
+            elevation = 16.dp.toFloat()
+            setBackgroundDrawable(GradientDrawable().apply { setColor(Color.TRANSPARENT) })
+            isOutsideTouchable = true
+        }
+        popup.showAtLocation(anchor, Gravity.CENTER, 0, 0)
     }
 
     private fun swatch(color: Int, selected: Boolean) = GradientDrawable().apply {

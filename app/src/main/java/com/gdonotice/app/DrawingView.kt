@@ -112,6 +112,26 @@ class DrawingView(context: Context, private val onSaved: (ByteArray) -> Unit) : 
         invalidate()
     }
 
+    fun mergeFromBytes(bytes: ByteArray) {
+        if (!::board.isInitialized) return
+        val remote = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return
+        val scaled = Bitmap.createScaledBitmap(remote, width, height, true)
+        val pixels = IntArray(width * height)
+        val local = IntArray(width * height)
+        scaled.getPixels(pixels, 0, width, 0, 0, width, height)
+        bitmap.getPixels(local, 0, width, 0, 0, width, height)
+        for (i in pixels.indices) {
+            val color = pixels[i]
+            val distance = kotlin.math.abs(Color.red(color) - 36) +
+                kotlin.math.abs(Color.green(color) - 85) + kotlin.math.abs(Color.blue(color) - 66)
+            if (distance > 45) local[i] = color
+        }
+        bitmap.setPixels(local, 0, width, 0, 0, width, height)
+        if (scaled !== remote) scaled.recycle()
+        remote.recycle()
+        invalidate()
+    }
+
     fun undo() {
         if (undoHistory.isEmpty()) return
         redoHistory.addLast(snapshot())
