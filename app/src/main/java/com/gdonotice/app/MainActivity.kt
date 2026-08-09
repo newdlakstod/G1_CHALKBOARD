@@ -137,55 +137,45 @@ class MainActivity : ComponentActivity() {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             setPadding(20.dp, 30.dp, 20.dp, 30.dp)
         }
-        root.addView(TextView(this).apply {
-            text = "Hi, ${auth.currentUser?.displayName ?: auth.currentUser?.email?.substringBefore('@') ?: "친구"}"
-            textSize = 28f
-            setTextColor(Color.rgb(31, 31, 31))
-            gravity = Gravity.START
+        root.addView(LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            addView(TextView(this@MainActivity).apply {
+                text = "Hi, ${auth.currentUser?.displayName ?: auth.currentUser?.email?.substringBefore('@') ?: "친구"}"
+                textSize = 28f
+                setTextColor(Color.rgb(31, 31, 31))
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+            addView(Button(this@MainActivity).apply {
+                text = "+"
+                textSize = 28f
+                contentDescription = "칠판 추가"
+                setPadding(0, 0, 0, 2.dp)
+                primaryStyle()
+                setOnClickListener { showAddBoardDialog() }
+            }, LinearLayout.LayoutParams(54.dp, 54.dp))
         }, LinearLayout.LayoutParams(-1, -2))
         root.addView(TextView(this).apply {
             text = "함께 그리는 나의 칠판"
             textSize = 15f
             setTextColor(Color.rgb(116, 110, 105))
         }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 6.dp })
-        val grid = GridLayout(this).apply { columnCount = 2 }
-        prefs.getStringSet("codes", emptySet()).orEmpty().sorted().forEach { code -> addBoardCard(grid, code) }
+        val columns = if (resources.configuration.screenWidthDp >= 600) 6 else 3
+        val grid = GridLayout(this).apply { columnCount = columns }
+        prefs.getStringSet("codes", emptySet()).orEmpty().sorted().forEach { code -> addBoardCard(grid, code, columns) }
         root.addView(grid, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 18.dp })
-        root.addView(Button(this).apply {
-            text = "새 공유 칠판 만들기"
-            isAllCaps = false
-            primaryStyle()
-            setOnClickListener { askBoardName() }
-        }, LinearLayout.LayoutParams(-1, 54.dp).apply { topMargin = 20.dp })
-        val codeInput = EditText(this).apply {
-            hint = "초대 코드 입력"
-            gravity = Gravity.CENTER
-            setTextColor(Color.rgb(31, 31, 31))
-            setHintTextColor(Color.rgb(130, 125, 120))
-            background = rounded(Color.WHITE, 18f)
-            setSingleLine()
-        }
-        root.addView(codeInput, LinearLayout.LayoutParams(-1, 54.dp).apply { topMargin = 12.dp })
-        root.addView(Button(this).apply {
-            text = "공유 칠판 참가"
-            isAllCaps = false
-            secondaryStyle()
-            setOnClickListener { joinBoard(codeInput.text.toString()) }
-        }, LinearLayout.LayoutParams(-1, 54.dp))
         showContent(ScrollView(this).apply {
             isFillViewport = true
             addView(root)
         })
     }
 
-    private fun addBoardCard(root: GridLayout, code: String) {
+    private fun addBoardCard(root: GridLayout, code: String, columns: Int) {
         val thumbnail = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             setBackgroundColor(Color.rgb(36, 85, 66))
         }
         val title = TextView(this).apply {
             text = "칠판 $code"
-            textSize = 16f
+            textSize = if (columns == 6) 12f else 13f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER_VERTICAL
             setPadding(12.dp, 8.dp, 42.dp, 8.dp)
@@ -210,7 +200,7 @@ class MainActivity : ComponentActivity() {
             })
             setOnClickListener { enterBoard(code) }
         }
-        val cardWidth = (resources.displayMetrics.widthPixels - 54.dp) / 2
+        val cardWidth = (resources.displayMetrics.widthPixels - 40.dp - (columns * 6).dp) / columns
         root.addView(card, GridLayout.LayoutParams().apply {
             width = cardWidth
             height = (cardWidth * 1.32f).toInt()
@@ -224,22 +214,60 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun showAddBoardDialog() {
+        val nameInput = EditText(this).apply {
+            hint = "새 칠판 이름"
+            setSingleLine()
+            background = rounded(Color.WHITE, 30f)
+            setPadding(18.dp, 0, 18.dp, 0)
+        }
+        val codeInput = EditText(this).apply {
+            hint = "8자리 초대 코드"
+            gravity = Gravity.CENTER
+            setSingleLine()
+            background = rounded(Color.WHITE, 30f)
+            setPadding(18.dp, 0, 18.dp, 0)
+        }
+        lateinit var dialog: Dialog
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(nameInput, LinearLayout.LayoutParams(-1, 54.dp))
+            addView(Button(this@MainActivity).apply {
+                text = "새 칠판 만들기"
+                isAllCaps = false
+                primaryStyle()
+                setOnClickListener {
+                    val name = nameInput.text.toString().trim()
+                    if (name.isBlank()) toast("칠판 이름을 입력해 주세요.") else {
+                        dialog.dismiss()
+                        createBoard(name)
+                    }
+                }
+            }, LinearLayout.LayoutParams(-1, 54.dp).apply { topMargin = 8.dp })
+            addView(TextView(this@MainActivity).apply {
+                text = "또는"
+                gravity = Gravity.CENTER
+                setTextColor(Color.rgb(116, 110, 105))
+            }, LinearLayout.LayoutParams(-1, 42.dp))
+            addView(codeInput, LinearLayout.LayoutParams(-1, 54.dp))
+            addView(Button(this@MainActivity).apply {
+                text = "공유 칠판 참여"
+                isAllCaps = false
+                secondaryStyle()
+                setOnClickListener {
+                    dialog.dismiss()
+                    joinBoard(codeInput.text.toString())
+                }
+            }, LinearLayout.LayoutParams(-1, 54.dp).apply { topMargin = 8.dp })
+        }
+        dialog = showRoundDialog("칠판 추가", content, "닫기") {}
+    }
+
     private fun confirmRemoveBoard(code: String) {
         showRoundDialog("칠판 삭제", TextView(this).apply { text = "이 칠판을 내 목록에서 삭제할까요?" }, "삭제") {
             val codes = prefs.getStringSet("codes", emptySet()).orEmpty().toMutableSet().apply { remove(code) }
             prefs.edit().putStringSet("codes", codes).apply()
             showBoardChooser()
-        }
-    }
-
-    private fun askBoardName() {
-        val input = EditText(this).apply {
-            hint = "예: 우리 가족 칠판"
-            setSingleLine()
-        }
-        showRoundDialog("새 칠판 이름", input, "만들기") {
-            val name = input.text.toString().trim()
-            if (name.isBlank()) toast("칠판 이름을 입력해 주세요.") else createBoard(name)
         }
     }
 
@@ -361,30 +389,24 @@ class MainActivity : ComponentActivity() {
         }
         addView(chalk)
         addDivider(3, 7)
-        var lastColorTap = 0L
-        var lastColorIndex = -1
         colors.forEachIndexed { index, color ->
             val dot = View(this@MainActivity).apply {
                 contentDescription = "분필 색상 ${index + 1}"
                 background = swatch(color, index == 0)
                 setOnClickListener {
-                    selectedIndex = index
-                    selectedColor = colors[index]
-                    board.setColor(selectedColor)
-                    colorButtons.forEachIndexed { i, button -> button.background = swatch(colors[i], i == index) }
-                    eraser.alpha = 0.55f
-                    val now = System.currentTimeMillis()
-                    if (lastColorIndex == index && now - lastColorTap < 350) {
+                    if (selectedIndex == index) {
                         showPalette(this, palette, selectedColor) { picked ->
                             selectedColor = picked
                             colors[index] = picked
                             board.setColor(picked)
                             colorButtons.forEachIndexed { i, button -> button.background = swatch(colors[i], i == index) }
                         }
-                        lastColorTap = 0L
                     } else {
-                        lastColorTap = now
-                        lastColorIndex = index
+                        selectedIndex = index
+                        selectedColor = colors[index]
+                        board.setColor(selectedColor)
+                        colorButtons.forEachIndexed { i, button -> button.background = swatch(colors[i], i == index) }
+                        eraser.alpha = 0.55f
                     }
                 }
             }
@@ -522,7 +544,7 @@ class MainActivity : ComponentActivity() {
         }.addOnFailureListener { toast("칠판 설정을 불러오지 못했습니다.") }
     }
 
-    private fun showRoundDialog(title: String, content: View, positiveText: String, onPositive: () -> Unit) {
+    private fun showRoundDialog(title: String, content: View, positiveText: String, onPositive: () -> Unit): Dialog {
         val dialog = Dialog(this)
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -539,11 +561,13 @@ class MainActivity : ComponentActivity() {
                 if (positiveText != "닫기") addView(Button(this@MainActivity).apply {
                     text = "취소"
                     isAllCaps = false
+                    secondaryStyle()
                     setOnClickListener { dialog.dismiss() }
                 })
                 addView(Button(this@MainActivity).apply {
                     text = positiveText
                     isAllCaps = false
+                    primaryStyle()
                     setOnClickListener {
                         dialog.dismiss()
                         onPositive()
@@ -562,6 +586,7 @@ class MainActivity : ComponentActivity() {
             dialog.window?.setLayout(minOf(resources.displayMetrics.widthPixels - 32.dp, 430.dp), WindowManager.LayoutParams.WRAP_CONTENT)
         }
         dialog.show()
+        return dialog
     }
 
     private fun memberLabel() = auth.currentUser?.displayName
@@ -586,13 +611,13 @@ class MainActivity : ComponentActivity() {
         setTextColor(Color.rgb(31, 31, 31))
         textSize = 16f
         elevation = 2.dp.toFloat()
-        background = rounded(Color.rgb(255, 188, 53), 20f)
+        background = rounded(Color.rgb(255, 188, 53), 999f)
     }
 
     private fun Button.secondaryStyle() {
         setTextColor(Color.rgb(31, 31, 31))
         textSize = 16f
-        background = rounded(Color.WHITE, 20f)
+        background = rounded(Color.WHITE, 999f)
     }
 
     private fun rounded(color: Int, radiusDp: Float) = GradientDrawable().apply {
