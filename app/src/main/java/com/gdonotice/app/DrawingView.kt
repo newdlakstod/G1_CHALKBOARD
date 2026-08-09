@@ -34,14 +34,6 @@ class DrawingView(context: Context, private val onSaved: (ByteArray) -> Unit) : 
         contentDescription = "손가락으로 그리는 칠판"
     }
 
-    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val maxWidth = MeasureSpec.getSize(widthMeasureSpec)
-        val maxHeight = MeasureSpec.getSize(heightMeasureSpec)
-        val ratio = 1248f / 1972f
-        val width = minOf(maxWidth, (maxHeight * ratio).toInt())
-        setMeasuredDimension(width, (width / ratio).toInt())
-    }
-
     override fun onSizeChanged(width: Int, height: Int, oldWidth: Int, oldHeight: Int) {
         if (width == 0 || height == 0) return
         val previous = if (file.exists()) BitmapFactory.decodeFile(file.path) else null

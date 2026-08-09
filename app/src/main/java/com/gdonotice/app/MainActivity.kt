@@ -12,7 +12,10 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageButton
+import android.widget.GridLayout
 import android.widget.LinearLayout
+import android.widget.PopupWindow
+import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -203,32 +206,21 @@ class MainActivity : ComponentActivity() {
         setPadding(10.dp, 8.dp, 10.dp, 8.dp)
         background = rounded(Color.argb(235, 250, 248, 241), 24f)
 
-        val colors = listOf(
-            "흰색" to Color.rgb(243, 238, 213), "노랑" to Color.rgb(248, 214, 92),
-            "분홍" to Color.rgb(244, 153, 177), "파랑" to Color.rgb(137, 198, 235),
-            "연두" to Color.rgb(166, 218, 126)
-        )
-        val colorButtons = mutableListOf<View>()
+        var selectedColor = Color.rgb(243, 238, 213)
         lateinit var eraser: View
-        colors.forEachIndexed { index, (name, color) ->
-            val dot = View(this@MainActivity).apply {
-                contentDescription = "$name 분필"
-                background = GradientDrawable().apply {
-                    shape = GradientDrawable.OVAL
-                    setColor(color)
-                    setStroke(2.dp, if (index == 0) Color.DKGRAY else Color.TRANSPARENT)
-                }
-                alpha = if (index == 0) 1f else 0.62f
-                setOnClickListener {
+        val colorButton = View(this@MainActivity).apply {
+            contentDescription = "분필 색상 선택"
+            background = swatch(selectedColor, true)
+            setOnClickListener { anchor ->
+                showPalette(anchor, selectedColor) { color ->
+                    selectedColor = color
                     board.setColor(color)
-                    colorButtons.forEach { it.alpha = 0.62f }
-                    alpha = 1f
+                    background = swatch(color, true)
                     eraser.alpha = 0.62f
                 }
             }
-            colorButtons += dot
-            addView(dot, LinearLayout.LayoutParams(28.dp, 28.dp).apply { marginEnd = 7.dp })
         }
+        addView(colorButton, LinearLayout.LayoutParams(36.dp, 36.dp).apply { marginEnd = 10.dp })
         addDivider(2, 9)
         eraser = LinearLayout(this@MainActivity).apply {
             orientation = LinearLayout.VERTICAL
@@ -240,7 +232,6 @@ class MainActivity : ComponentActivity() {
             alpha = 0.62f
             setOnClickListener {
                 board.setEraser()
-                colorButtons.forEach { it.alpha = 0.62f }
                 alpha = 1f
             }
         }
@@ -283,6 +274,58 @@ class MainActivity : ComponentActivity() {
             marginStart = start.dp
             marginEnd = end.dp
         })
+    }
+
+    private fun showPalette(anchor: View, current: Int, onSelected: (Int) -> Unit) {
+        val colors = buildList {
+            repeat(10) { level ->
+                val value = 1f - level * 0.09f
+                add(Color.HSVToColor(floatArrayOf(0f, 0f, value)))
+            }
+            repeat(5) { band ->
+                repeat(18) { hue ->
+                    add(Color.HSVToColor(floatArrayOf(hue * 20f, 0.48f + band * 0.11f, 1f - band * 0.09f)))
+                }
+            }
+        }
+        val grid = GridLayout(this).apply {
+            columnCount = 10
+            setPadding(12.dp, 12.dp, 12.dp, 12.dp)
+            colors.forEach { color ->
+                addView(View(this@MainActivity).apply {
+                    contentDescription = "색상 선택"
+                    background = swatch(color, color == current)
+                }, GridLayout.LayoutParams().apply {
+                    width = 34.dp
+                    height = 34.dp
+                    setMargins(3.dp, 3.dp, 3.dp, 3.dp)
+                })
+            }
+        }
+        lateinit var popup: PopupWindow
+        val scroll = ScrollView(this).apply {
+            background = rounded(Color.argb(250, 30, 34, 32), 18f)
+            addView(grid)
+        }
+        popup = PopupWindow(scroll, minOf(resources.displayMetrics.widthPixels - 24.dp, 420.dp), minOf(resources.displayMetrics.heightPixels / 2, 440.dp), true).apply {
+            elevation = 16.dp.toFloat()
+            setBackgroundDrawable(GradientDrawable().apply { setColor(Color.TRANSPARENT) })
+            isOutsideTouchable = true
+        }
+        grid.children().forEach { cell -> cell.setOnClickListener {
+            val index = grid.indexOfChild(cell)
+            onSelected(colors[index])
+            popup.dismiss()
+        } }
+        popup.showAtLocation(anchor, Gravity.CENTER, 0, 0)
+    }
+
+    private fun GridLayout.children() = (0 until childCount).map(::getChildAt)
+
+    private fun swatch(color: Int, selected: Boolean) = GradientDrawable().apply {
+        shape = GradientDrawable.OVAL
+        setColor(color)
+        setStroke((if (selected) 4 else 1).dp, if (selected) Color.WHITE else Color.rgb(80, 80, 80))
     }
 
     private fun centeredColumn() = LinearLayout(this).apply {
