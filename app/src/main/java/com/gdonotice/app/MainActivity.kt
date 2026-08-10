@@ -50,6 +50,8 @@ class MainActivity : ComponentActivity() {
     private var currentBoardCode: String? = null
     private var coverBoardCode: String? = null
     private val pretendard: Typeface by lazy { ResourcesCompat.getFont(this, R.font.pretendard_regular) ?: Typeface.DEFAULT }
+    private val cavorting: Typeface by lazy { ResourcesCompat.getFont(this, R.font.cavorting) ?: Typeface.DEFAULT }
+    private var pendingPreset = CanvasPreset.A5
     private val pickCover = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         val code = coverBoardCode ?: return@registerForActivityResult
         uri ?: return@registerForActivityResult
@@ -72,16 +74,72 @@ class MainActivity : ComponentActivity() {
             View.SYSTEM_UI_FLAG_LAYOUT_STABLE
 
         if (auth.currentUser?.isAnonymous == true) auth.signOut()
-        route()
+        showWelcome()
     }
 
     private fun route() {
-        val code = prefs.getString("code", null)
-        when {
-            auth.currentUser == null -> showLogin()
-            code.isNullOrBlank() -> showBoardChooser()
-            else -> showBoard(code)
+        if (auth.currentUser == null) showWelcome() else showHome()
+    }
+
+    private fun showWelcome() {
+        currentBoardCode = null
+        val expanded = SketchbookDesign.windowMode(resources.configuration.screenWidthDp) != WindowMode.COMPACT
+        val root = LinearLayout(this).apply {
+            orientation = if (expanded) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(28.dp, 32.dp, 28.dp, 32.dp)
+            setBackgroundColor(SketchbookDesign.COBALT)
         }
+        fun title() = TextView(this).apply {
+            text = "G1\nSKETCHBOOK"; textSize = if (expanded) 58f else 46f
+            setTextColor(0xFFFFF4DE.toInt()); typeface = cavorting; gravity = Gravity.CENTER
+        }
+        fun phrase() = TextView(this).apply {
+            text = "Draw together,\nkeep the little days."; textSize = 22f
+            setTextColor(0xFFFFF4DE.toInt()); typeface = cavorting; gravity = Gravity.CENTER
+        }
+        fun buttons() = LinearLayout(this).apply {
+            gravity = Gravity.CENTER
+            addView(welcomeButton("Log in") { signInWithGoogle() }, LinearLayout.LayoutParams(116.dp, 50.dp))
+            addView(welcomeButton("Enter") {
+                if (auth.currentUser == null) signInWithGoogle() else {
+                    prefs.edit().putBoolean("entered", true).apply(); showHome()
+                }
+            }, LinearLayout.LayoutParams(116.dp, 50.dp).apply { marginStart = 14.dp })
+        }
+        val duck = WelcomeDuckView(this)
+        if (expanded) {
+            val copy = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
+                addView(title())
+                addView(phrase(), LinearLayout.LayoutParams(-1, -2).apply { topMargin = 18.dp })
+                addView(buttons(), LinearLayout.LayoutParams(-1, 54.dp).apply { topMargin = 26.dp })
+            }
+            root.addView(copy, LinearLayout.LayoutParams(0, -1, 2f))
+            root.addView(duck, LinearLayout.LayoutParams(0, -1, 3f))
+        } else {
+            root.addView(title(), LinearLayout.LayoutParams(-1, 0, 1.15f))
+            root.addView(duck, LinearLayout.LayoutParams(-1, 0, 2.55f))
+            root.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                addView(phrase())
+                addView(buttons(), LinearLayout.LayoutParams(-1, 54.dp).apply { topMargin = 20.dp })
+            }, LinearLayout.LayoutParams(-1, 0, 1.30f))
+        }
+        setContentView(root)
+    }
+
+    private fun welcomeButton(label: String, action: () -> Unit) = Button(this).apply {
+        text = label
+        isAllCaps = false
+        typeface = cavorting
+        textSize = 20f
+        setTextColor(0xFFFFF4DE.toInt())
+        background = GradientDrawable().apply {
+            setColor(Color.TRANSPARENT); cornerRadius = 999f; setStroke(1.dp, 0xFFFFF4DE.toInt())
+        }
+        setOnClickListener { action() }
     }
 
     private fun showLogin() {
@@ -117,11 +175,105 @@ class MainActivity : ComponentActivity() {
             }
             val idToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
             auth.signInWithCredential(GoogleAuthProvider.getCredential(idToken, null))
-                .addOnSuccessListener { route() }
+                .addOnSuccessListener { showWelcome() }
                 .addOnFailureListener { toast("로그인하지 못했습니다.") }
         } catch (_: Exception) {
             toast("로그인이 취소되었거나 실패했습니다.")
         }
+    }
+
+    private fun showHome() {
+        currentBoardCode = null
+        val expanded = SketchbookDesign.windowMode(resources.configuration.screenWidthDp) != WindowMode.COMPACT
+        val root = LinearLayout(this).apply {
+            orientation = if (expanded) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+            setPadding(20.dp, 22.dp, 20.dp, 18.dp)
+            setBackgroundColor(SketchbookDesign.PAPER)
+        }
+        val preview = FrameLayout(this).apply {
+            background = rounded(0xFFFFFCF4.toInt(), 18f)
+            addView(ImageView(this@MainActivity).apply {
+                id = View.generateViewId()
+                tag = "recentImage"
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                setBackgroundColor(0xFFFFFCF4.toInt())
+            }, FrameLayout.LayoutParams(-1, -1))
+            setOnClickListener {
+                prefs.getString("recentCode", null)?.let(::enterBoard)
+            }
+        }
+        val actions = LinearLayout(this).apply {
+            orientation = if (expanded) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            addView(homeAction("✎", "이어 그리기") { prefs.getString("recentCode", null)?.let(::enterBoard) })
+            addView(homeAction("＋", "새 스케치북") { showCreateBoardDialog() })
+            addView(homeAction("⚿", "초대 코드") { showJoinBoardDialog() })
+        }
+        val side = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            addView(LinearLayout(this@MainActivity).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                addView(TextView(this@MainActivity).apply {
+                    text = "Hi, ${auth.currentUser?.displayName ?: "Friend"}"
+                    textSize = 27f; typeface = cavorting; setTextColor(SketchbookDesign.INK)
+                }, LinearLayout.LayoutParams(0, -2, 1f))
+                addView(Button(this@MainActivity).apply {
+                    text = "●"; textSize = 26f; contentDescription = "계정"
+                    setTextColor(0xFF8D9440.toInt()); background = ColorDrawable(Color.TRANSPARENT)
+                    setOnClickListener { showAccount() }
+                }, LinearLayout.LayoutParams(52.dp, 52.dp))
+            }, LinearLayout.LayoutParams(-1, -2))
+            addView(actions, LinearLayout.LayoutParams(-1, if (expanded) 240.dp else 76.dp).apply { topMargin = 18.dp })
+            addView(LinearLayout(this@MainActivity).apply {
+                gravity = Gravity.CENTER
+                addView(homeAction("⌂", "홈") {})
+                addView(homeAction("▣", "스케치북") { showBoardChooser() })
+            }, LinearLayout.LayoutParams(-1, 68.dp).apply { topMargin = 20.dp })
+        }
+        if (expanded) {
+            root.addView(preview, LinearLayout.LayoutParams(0, -1, 3f).apply { marginEnd = 22.dp })
+            root.addView(side, LinearLayout.LayoutParams(0, -1, 2f))
+        } else {
+            root.addView(side, LinearLayout.LayoutParams(-1, -2))
+            root.addView(preview, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = 16.dp })
+        }
+        showContent(root)
+        val recent = prefs.getString("recentCode", null) ?: prefs.getStringSet("codes", emptySet()).orEmpty().firstOrNull()
+        if (recent != null) db.collection("boards").document(recent).get().addOnSuccessListener { snap ->
+            if (!snap.exists()) return@addOnSuccessListener
+            prefs.edit().putString("recentCode", recent).apply()
+            val bytes = (snap.getBlob("cover") ?: snap.getBlob("image"))?.toBytes() ?: return@addOnSuccessListener
+            val image = findTaggedView(root, "recentImage") as? ImageView ?: return@addOnSuccessListener
+            image.setImageBitmap(BitmapFactory.decodeByteArray(bytes, 0, bytes.size))
+        }
+    }
+
+    private fun findTaggedView(view: View, target: String): View? {
+        if (view.tag == target) return view
+        if (view is android.view.ViewGroup) repeat(view.childCount) {
+            findTaggedView(view.getChildAt(it), target)?.let { found -> return found }
+        }
+        return null
+    }
+
+    private fun homeAction(symbol: String, description: String, action: () -> Unit) = Button(this).apply {
+        text = symbol; textSize = 25f; contentDescription = description
+        setTextColor(SketchbookDesign.COBALT); background = rounded(Color.TRANSPARENT, 999f)
+        setOnClickListener { action() }
+        layoutParams = LinearLayout.LayoutParams(64.dp, 64.dp).apply { setMargins(6.dp, 6.dp, 6.dp, 6.dp) }
+    }
+
+    private fun showAccount() {
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            listOf("아바타 편집", "알림", "동기화 및 저장 공간", "계정").forEach { label ->
+                addView(Button(this@MainActivity).apply {
+                    text = label; isAllCaps = false; secondaryStyle()
+                }, LinearLayout.LayoutParams(-1, 52.dp).apply { bottomMargin = 8.dp })
+            }
+        }
+        showRoundDialog(auth.currentUser?.displayName ?: "My account", content, "닫기") {}
     }
 
     private fun showBoardChooser() {
@@ -138,7 +290,7 @@ class MainActivity : ComponentActivity() {
             setTextColor(Color.rgb(31, 31, 31))
         }, LinearLayout.LayoutParams(-1, -2))
         root.addView(TextView(this).apply {
-            text = "함께 그리는 나의 칠판"
+            text = "함께 그리는 나의 스케치북"
             textSize = 15f
             setTextColor(Color.rgb(116, 110, 105))
         }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 6.dp })
@@ -162,13 +314,13 @@ class MainActivity : ComponentActivity() {
             background = rounded(Color.rgb(235, 231, 225), 999f)
             setPadding(4.dp, 4.dp, 4.dp, 4.dp)
             mineTab = Button(this@MainActivity).apply {
-                text = "내 칠판"
+                text = "내 스케치북"
                 textSize = 15f
                 isAllCaps = false
                 setTextColor(Color.rgb(31, 31, 31))
             }
             sharedTab = Button(this@MainActivity).apply {
-                text = "공유 칠판"
+                text = "공유 스케치북"
                 textSize = 15f
                 isAllCaps = false
                 setTextColor(Color.rgb(31, 31, 31))
@@ -177,7 +329,7 @@ class MainActivity : ComponentActivity() {
             addView(sharedTab, LinearLayout.LayoutParams(0, 48.dp, 1f).apply { marginStart = 4.dp })
             styleTabs()
         }, LinearLayout.LayoutParams(-1, 56.dp).apply { topMargin = 32.dp })
-        root.addView(sectionHeader("칠판 라이브러리", true), LinearLayout.LayoutParams(-1, 48.dp).apply { topMargin = 20.dp })
+        root.addView(sectionHeader("Sketchbooks", true), LinearLayout.LayoutParams(-1, 48.dp).apply { topMargin = 20.dp })
         root.addView(boardGrid, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 8.dp })
         val codes = prefs.getStringSet("codes", emptySet()).orEmpty()
         val requests = codes.map { db.collection("boards").document(it).get() }
@@ -193,14 +345,14 @@ class MainActivity : ComponentActivity() {
             }
             val mine = sorted.filter { it.getString("ownerId") == auth.currentUser?.uid }
             val shared = sorted.filterNot { it.getString("ownerId") == auth.currentUser?.uid }
-            mineTab.text = "내 칠판 ${mine.size}"
-            sharedTab.text = "공유 칠판 ${shared.size}"
+            mineTab.text = "내 스케치북 ${mine.size}"
+            sharedTab.text = "공유 스케치북 ${shared.size}"
             fun render() {
                 boardGrid.removeAllViews()
                 val visible = if (showingMine) mine else shared
                 if (visible.isEmpty()) {
                     boardGrid.addView(TextView(this).apply {
-                        text = if (showingMine) "아직 만든 칠판이 없어요.\n+ 버튼으로 첫 칠판을 만들어보세요." else "아직 공유받은 칠판이 없어요.\n초대 코드로 참여할 수 있어요."
+                        text = if (showingMine) "첫 스케치북을 만들어보세요." else "초대 코드로 스케치북에 참여하세요."
                         gravity = Gravity.CENTER
                         textSize = 15f
                         setTextColor(Color.rgb(116, 110, 105))
@@ -240,7 +392,7 @@ class MainActivity : ComponentActivity() {
                 textSize = 32f
                 includeFontPadding = false
                 gravity = Gravity.CENTER
-                contentDescription = "칠판 추가"
+                contentDescription = "스케치북 추가"
                 setPadding(0, 0, 0, 3.dp)
                 setOnClickListener { showAddBoardDialog() }
             }, FrameLayout.LayoutParams(58.dp, 58.dp, Gravity.BOTTOM or Gravity.END).apply {
@@ -299,7 +451,7 @@ class MainActivity : ComponentActivity() {
             setBackgroundColor(Color.rgb(26, 66, 47))
         }
         val title = TextView(this).apply {
-            text = snapshot.getString("name") ?: "칠판 $code"
+            text = snapshot.getString("name") ?: "Sketchbook $code"
             textSize = if (columns == 6) 14f else 16f
             setTextColor(Color.rgb(31, 31, 31))
             setTypeface(pretendard, Typeface.BOLD)
@@ -357,7 +509,7 @@ class MainActivity : ComponentActivity() {
         val choices = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             addView(Button(this@MainActivity).apply {
-                text = "새 칠판 만들기"
+                text = "새 스케치북"
                 isAllCaps = false
                 primaryStyle()
                 setOnClickListener {
@@ -375,13 +527,13 @@ class MainActivity : ComponentActivity() {
                 }
             }, LinearLayout.LayoutParams(-1, 56.dp))
         }
-        dialog = showRoundDialog("칠판 추가", choices, "닫기") {}
+        dialog = showRoundDialog("스케치북 추가", choices, "닫기") {}
     }
 
     private fun showCreateBoardDialog() {
         val nameInput = EditText(this).apply {
             hint = "예: 우리 가족 낙서장"
-            contentDescription = "새 칠판 이름"
+            contentDescription = "새 스케치북 이름"
             setHintTextColor(Color.rgb(185, 185, 185))
             setSingleLine()
             background = rounded(Color.WHITE, 30f)
@@ -389,13 +541,32 @@ class MainActivity : ComponentActivity() {
         }
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            addView(fieldLabel("칠판 이름"), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 8.dp })
+            addView(fieldLabel("스케치북 이름"), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 8.dp })
             addView(nameInput, LinearLayout.LayoutParams(-1, 54.dp))
         }
-        showRoundDialog("새 칠판 만들기", content, "만들기") {
+        showRoundDialog("새 스케치북", content, "다음") {
             val name = nameInput.text.toString().trim()
-            if (name.isBlank()) toast("칠판 이름을 입력해 주세요.") else createBoard(name)
+            if (name.isBlank()) toast("스케치북 이름을 입력해 주세요.") else showCanvasPresetDialog(name)
         }
+    }
+
+    private fun showCanvasPresetDialog(name: String) {
+        val presets = listOf(CanvasPreset.A4, CanvasPreset.A5, CanvasPreset.B5, CanvasPreset.SQUARE, CanvasPreset.PHOTO, CanvasPreset.WIDE, CanvasPreset.STORY, CanvasPreset.CUSTOM)
+        val grid = GridLayout(this).apply { columnCount = 4 }
+        val views = mutableListOf<CanvasPresetIconView>()
+        presets.forEach { preset ->
+            val icon = CanvasPresetIconView(this, preset).apply {
+                contentDescription = preset.name
+                selectedPreset = preset == pendingPreset
+                setOnClickListener {
+                    pendingPreset = preset
+                    views.forEach { it.selectedPreset = it.preset == preset }
+                }
+            }
+            views += icon
+            grid.addView(icon, GridLayout.LayoutParams().apply { width = 58.dp; height = 76.dp; setMargins(4.dp, 4.dp, 4.dp, 4.dp) })
+        }
+        showRoundDialog("캔버스 규격", grid, "만들기") { createBoard(name) }
     }
 
     private fun showJoinBoardDialog() {
@@ -475,6 +646,7 @@ class MainActivity : ComponentActivity() {
     private fun createBoard(name: String) {
         val user = auth.currentUser ?: return
         val code = UUID.randomUUID().toString().replace("-", "").take(8).uppercase()
+        val canvasPixels = SketchbookDesign.pixelSize(pendingPreset)
         db.collection("boards").document(code).set(
             mapOf(
                 "name" to name,
@@ -482,12 +654,17 @@ class MainActivity : ComponentActivity() {
                 "ownerName" to memberLabel(),
                 "members" to mapOf(user.uid to true),
                 "memberNames" to mapOf(user.uid to memberLabel()),
-                "backgroundColor" to 0xFF1A422F,
+                "backgroundColor" to SketchbookDesign.PAPER,
+                "canvasPreset" to pendingPreset.name,
+                "canvasWidth" to canvasPixels.first,
+                "canvasHeight" to canvasPixels.second,
                 "createdAt" to Timestamp.now(),
                 "updatedAt" to Timestamp.now()
             )
-        ).addOnSuccessListener { enterBoard(code) }
-            .addOnFailureListener { toast("칠판을 만들지 못했습니다.") }
+        ).addOnSuccessListener {
+            prefs.edit().putInt("canvasWidth_$code", canvasPixels.first).putInt("canvasHeight_$code", canvasPixels.second).apply()
+            enterBoard(code)
+        }.addOnFailureListener { toast("스케치북을 만들지 못했습니다.") }
     }
 
     private fun joinBoard(rawCode: String) {
@@ -500,6 +677,10 @@ class MainActivity : ComponentActivity() {
         val doc = db.collection("boards").document(code)
         doc.get().addOnSuccessListener { snapshot ->
             if (!snapshot.exists()) return@addOnSuccessListener toast("초대 코드를 찾을 수 없습니다.")
+            prefs.edit()
+                .putInt("canvasWidth_$code", snapshot.getLong("canvasWidth")?.toInt() ?: 1239)
+                .putInt("canvasHeight_$code", snapshot.getLong("canvasHeight")?.toInt() ?: 819)
+                .apply()
             doc.update(mapOf("members.${user.uid}" to true, "memberNames.${user.uid}" to memberLabel()))
                 .addOnSuccessListener { enterBoard(code) }
                 .addOnFailureListener { toast("칠판에 참가하지 못했습니다.") }
@@ -508,16 +689,18 @@ class MainActivity : ComponentActivity() {
 
     private fun enterBoard(code: String) {
         val codes = prefs.getStringSet("codes", emptySet()).orEmpty().toMutableSet().apply { add(code) }
-        prefs.edit().putString("code", code).putStringSet("codes", codes).apply()
+        prefs.edit().putString("code", code).putString("recentCode", code).putStringSet("codes", codes).apply()
         showBoard(code)
     }
 
     private fun showBoard(code: String) {
         currentBoardCode = code
         val document = db.collection("boards").document(code)
-        var lastBackground = prefs.getInt("background_$code", 0xFF1A422F.toInt())
+        var lastBackground = prefs.getInt("background_$code", SketchbookDesign.PAPER)
+        val canvasWidth = prefs.getInt("canvasWidth_$code", 1239)
+        val canvasHeight = prefs.getInt("canvasHeight_$code", 819)
         lateinit var board: DrawingView
-        board = DrawingView(this, code, lastBackground) { bytes, cleared, background ->
+        board = DrawingView(this, code, lastBackground, canvasWidth, canvasHeight) { bytes, cleared, background ->
             BoardWidget.updateAll(this)
             val user = auth.currentUser ?: return@DrawingView
             val now = Timestamp.now()
@@ -530,7 +713,7 @@ class MainActivity : ComponentActivity() {
             if (cleared) update["clearedAt"] = now
             document.update(update).addOnFailureListener { toast("그림을 동기화하지 못했습니다.") }
         }
-        val root = FrameLayout(this).apply { setBackgroundColor(Color.rgb(36, 85, 66)) }
+        val root = FrameLayout(this).apply { setBackgroundColor(0xFFE9E2D5.toInt()) }
         root.addView(board, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
         root.addView(makeToolbar(board, code), FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM).apply {
             bottomMargin = 24.dp
@@ -540,7 +723,7 @@ class MainActivity : ComponentActivity() {
         var firstSnapshot = true
         document.addSnapshotListener { snapshot, error ->
             if (error != null) return@addSnapshotListener toast("동기화 연결을 확인해 주세요.")
-            val background = snapshot?.getLong("backgroundColor")?.toInt() ?: 0xFF1A422F.toInt()
+            val background = snapshot?.getLong("backgroundColor")?.toInt() ?: SketchbookDesign.PAPER
             val backgroundChanged = background != lastBackground
             lastBackground = background
             prefs.edit().putInt("background_$code", background).apply()
@@ -560,7 +743,7 @@ class MainActivity : ComponentActivity() {
     override fun onBackPressed() {
         if (currentBoardCode != null) {
             prefs.edit().remove("code").apply()
-            showBoardChooser()
+            showHome()
         } else {
             super.onBackPressed()
         }
@@ -758,35 +941,6 @@ class MainActivity : ComponentActivity() {
                         pickCover.launch("image/*")
                     }
                 }, LinearLayout.LayoutParams(-1, 50.dp).apply { topMargin = 14.dp })
-                addView(TextView(this@MainActivity).apply {
-                    text = "칠판 배경색"
-                    textSize = 16f
-                    setTextColor(Color.rgb(45, 52, 49))
-                }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 18.dp })
-                addView(LinearLayout(this@MainActivity).apply {
-                    gravity = Gravity.CENTER
-                    listOf(
-                        "상아색" to 0xFFEFE9DE.toInt(),
-                        "진회색" to 0xFF2E2E2E.toInt(),
-                        "칠판색" to 0xFF1A422F.toInt()
-                    ).forEach { (label, color) ->
-                        addView(Button(this@MainActivity).apply {
-                            text = ""
-                            contentDescription = "$label 배경색"
-                            textSize = 13f
-                            isAllCaps = false
-                            setTextColor(if (color == 0xFF2E2E2E.toInt() || color == 0xFF1A422F.toInt()) Color.WHITE else Color.BLACK)
-                            background = rounded(color, 999f)
-                            setOnClickListener {
-                                prefs.edit().putInt("background_$code", color).apply()
-                                board.setBoardBackgroundColor(color, true)
-                            }
-                        }, LinearLayout.LayoutParams(0, 48.dp, 1f).apply {
-                            marginStart = 4.dp
-                            marginEnd = 4.dp
-                        })
-                    }
-                }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 8.dp })
             }
             showRoundDialog("칠판 설정", info, "닫기") {}
         }.addOnFailureListener { toast("칠판 설정을 불러오지 못했습니다.") }

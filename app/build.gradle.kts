@@ -12,11 +12,11 @@ android {
 
     defaultConfig {
         applicationId = "com.gdonotice.app"
-        base.archivesName.set("G1_CHALKBOARD")
+        base.archivesName.set("G1_SKETCHBOOK")
         minSdk = 26
         targetSdk = 35
-        versionCode = 29
-        versionName = "0.11.0"
+        versionCode = 30
+        versionName = "2.0.1"
     }
 
     compileOptions {
@@ -40,4 +40,5 @@ dependencies {
     implementation("androidx.credentials:credentials:1.3.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+    testImplementation("junit:junit:4.13.2")
 }

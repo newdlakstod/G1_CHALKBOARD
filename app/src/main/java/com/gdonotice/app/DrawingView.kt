@@ -19,12 +19,12 @@ class DrawingView(
     context: Context,
     boardCode: String,
     initialBoardColor: Int,
+    private val boardWidth: Int = 1239,
+    private val boardHeight: Int = 819,
     private val onSaved: (ByteArray, Boolean, Int) -> Unit
 ) : View(context) {
     // The shared board always keeps the unfolded Fold's landscape ratio.
     // A folded cover screen crops this canvas; it never rotates or stretches it.
-    private val boardWidth = 1239
-    private val boardHeight = 819
     private val file = File(context.filesDir, "board_$boardCode.png")
     private var boardColor = initialBoardColor
     private val chalkColors = intArrayOf(
