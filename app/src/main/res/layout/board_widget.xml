@@ -14,7 +14,7 @@
         android:contentDescription="선택한 칠판 열기"
         android:elevation="6dp"
         android:orientation="vertical"
-        android:padding="7dp">
+        android:padding="8dp">
 
         <FrameLayout
             android:layout_width="match_parent"
@@ -36,7 +36,7 @@
             android:id="@+id/widget_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="9dp"
             android:ellipsize="end"
             android:fontFamily="@font/pretendard_regular"
             android:maxLines="1"

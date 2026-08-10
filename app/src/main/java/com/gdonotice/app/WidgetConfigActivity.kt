@@ -62,15 +62,16 @@ class WidgetConfigActivity : ComponentActivity() {
                 val cardWidth = (resources.displayMetrics.widthPixels - 40.dp - (columns * 6).dp) / columns
                 grid.addView(LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
-                    setPadding(7.dp, 7.dp, 7.dp, 10.dp)
-                    background = rounded(Color.WHITE, 10f)
-                    elevation = 6.dp.toFloat()
+                    setPadding(8.dp, 8.dp, 8.dp, 12.dp)
+                    background = rounded(Color.WHITE, 18f)
+                    elevation = 4.dp.toFloat()
                     clipChildren = false
                     addView(FrameLayout(this@WidgetConfigActivity).apply {
-                        background = rounded(Color.rgb(26, 66, 47), 5f)
+                        background = rounded(Color.rgb(26, 66, 47), 12f)
                         clipToOutline = true
                         addView(ImageView(this@WidgetConfigActivity).apply {
                             scaleType = ImageView.ScaleType.CENTER_CROP
+                            contentDescription = "$title 표지"
                             bytes?.let { setImageBitmap(BitmapFactory.decodeByteArray(it, 0, it.size)) }
                         }, FrameLayout.LayoutParams(-1, -1))
                     }, LinearLayout.LayoutParams(-1, 0, 1f))

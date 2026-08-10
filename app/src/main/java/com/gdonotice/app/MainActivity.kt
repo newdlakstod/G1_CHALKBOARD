@@ -153,20 +153,9 @@ class MainActivity : ComponentActivity() {
             clipChildren = false
             clipToPadding = false
         }
-        root.addView(LinearLayout(this).apply {
-            gravity = Gravity.END or Gravity.CENTER_VERTICAL
-            addView(ImageButton(this@MainActivity).apply {
-                setImageResource(R.drawable.ic_sort)
-                contentDescription = "칠판 정렬"
-                setPadding(11.dp, 11.dp, 11.dp, 11.dp)
-                background = rounded(Color.WHITE, 999f)
-                elevation = 2.dp.toFloat()
-                setOnClickListener { showSortDialog() }
-            }, LinearLayout.LayoutParams(46.dp, 46.dp))
-        }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 36.dp })
-        root.addView(sectionTitle("내가 만든 칠판"), LinearLayout.LayoutParams(-1, -2).apply { topMargin = 20.dp })
+        root.addView(sectionHeader("내가 만든 칠판", true), LinearLayout.LayoutParams(-1, 48.dp).apply { topMargin = 36.dp })
         root.addView(mine, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 8.dp })
-        root.addView(sectionTitle("공유받은 칠판"), LinearLayout.LayoutParams(-1, -2).apply { topMargin = 24.dp })
+        root.addView(sectionHeader("공유받은 칠판"), LinearLayout.LayoutParams(-1, 48.dp).apply { topMargin = 24.dp })
         root.addView(shared, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 8.dp })
         val codes = prefs.getStringSet("codes", emptySet()).orEmpty()
         val requests = codes.map { db.collection("boards").document(it).get() }
@@ -213,10 +202,22 @@ class MainActivity : ComponentActivity() {
         })
     }
 
-    private fun sectionTitle(label: String) = TextView(this).apply {
-        text = label
-        textSize = 19f
-        setTextColor(Color.rgb(31, 31, 31))
+    private fun sectionHeader(label: String, sortable: Boolean = false) = LinearLayout(this).apply {
+        gravity = Gravity.CENTER_VERTICAL
+        addView(TextView(this@MainActivity).apply {
+            text = label
+            textSize = 19f
+            setTextColor(Color.rgb(31, 31, 31))
+            setTypeface(pretendard, Typeface.BOLD)
+        }, LinearLayout.LayoutParams(0, -2, 1f))
+        if (sortable) addView(ImageButton(this@MainActivity).apply {
+            setImageResource(R.drawable.ic_sort)
+            contentDescription = "칠판 정렬"
+            setPadding(12.dp, 12.dp, 12.dp, 12.dp)
+            background = rounded(Color.WHITE, 999f)
+            elevation = 3.dp.toFloat()
+            setOnClickListener { showSortDialog() }
+        }, LinearLayout.LayoutParams(48.dp, 48.dp))
     }
 
     private fun showSortDialog() {
@@ -256,6 +257,7 @@ class MainActivity : ComponentActivity() {
             setTypeface(pretendard, Typeface.BOLD)
             maxLines = 1
         }
+        thumbnail.contentDescription = "${title.text} 표지"
         @Suppress("UNCHECKED_CAST")
         val memberNames = snapshot.get("memberNames") as? Map<String, String>
         val creator = snapshot.getString("ownerName")
@@ -267,13 +269,13 @@ class MainActivity : ComponentActivity() {
         } ?: "날짜 없음"
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(7.dp, 7.dp, 7.dp, 10.dp)
-            background = rounded(Color.WHITE, 10f)
-            elevation = 6.dp.toFloat()
+            setPadding(8.dp, 8.dp, 8.dp, 12.dp)
+            background = rounded(Color.WHITE, 18f)
+            elevation = 4.dp.toFloat()
             translationZ = 0f
             clipChildren = false
             addView(FrameLayout(this@MainActivity).apply {
-                background = rounded(Color.rgb(26, 66, 47), 5f)
+                background = rounded(Color.rgb(26, 66, 47), 12f)
                 clipToOutline = true
                 addView(thumbnail, FrameLayout.LayoutParams(-1, -1))
             }, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -305,6 +307,7 @@ class MainActivity : ComponentActivity() {
     private fun showAddBoardDialog() {
         val nameInput = EditText(this).apply {
             hint = "새 칠판 이름 기입"
+            contentDescription = "새 칠판 이름"
             setHintTextColor(Color.rgb(185, 185, 185))
             setSingleLine()
             background = rounded(Color.WHITE, 30f)
@@ -312,6 +315,7 @@ class MainActivity : ComponentActivity() {
         }
         val codeInput = EditText(this).apply {
             hint = "초대코드로 입장"
+            contentDescription = "공유 칠판 초대 코드"
             setHintTextColor(Color.rgb(185, 185, 185))
             gravity = Gravity.CENTER_VERTICAL or Gravity.START
             setSingleLine()
@@ -321,12 +325,14 @@ class MainActivity : ComponentActivity() {
         lateinit var dialog: Dialog
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            addView(fieldLabel("새 칠판 만들기"), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 8.dp })
             addView(nameInput, LinearLayout.LayoutParams(-1, 54.dp))
             addView(TextView(this@MainActivity).apply {
                 text = "또는"
                 gravity = Gravity.CENTER
                 setTextColor(Color.rgb(116, 110, 105))
             }, LinearLayout.LayoutParams(-1, 42.dp))
+            addView(fieldLabel("공유 칠판 참여"), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 8.dp })
             addView(codeInput, LinearLayout.LayoutParams(-1, 54.dp))
         }
         dialog = showRoundDialog("칠판 추가", content, "만들기") {
@@ -525,8 +531,12 @@ class MainActivity : ComponentActivity() {
         addDivider(3, 7)
         colors.forEachIndexed { index, color ->
             val dot = View(this@MainActivity).apply {
-                contentDescription = "분필 색상 ${index + 1}"
                 background = swatch(color, index == 0)
+            }
+            val target = FrameLayout(this@MainActivity).apply {
+                contentDescription = "분필 색상 ${index + 1}"
+                isSelected = index == 0
+                addView(dot, FrameLayout.LayoutParams(34.dp, 34.dp, Gravity.CENTER))
                 setOnClickListener {
                     if (selectedIndex == index) {
                         showPalette(this, palette, selectedColor) { picked ->
@@ -545,7 +555,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
             colorButtons += dot
-            addView(dot, LinearLayout.LayoutParams(34.dp, 34.dp).apply { marginEnd = 7.dp })
+            addView(target, LinearLayout.LayoutParams(48.dp, 48.dp).apply { marginEnd = 8.dp })
         }
 
         addDivider(3, 7)
@@ -573,7 +583,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        addView(eraser, LinearLayout.LayoutParams(40.dp, 40.dp).apply { marginEnd = 5.dp })
+        addView(eraser, LinearLayout.LayoutParams(48.dp, 48.dp).apply { marginEnd = 8.dp })
 
         addDivider(2, 5)
         val widths = listOf(2.5f, 4.5f, 7f)
@@ -592,7 +602,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
             widthButtons += holder
-            addView(holder, LinearLayout.LayoutParams(42.dp, 40.dp))
+            addView(holder, LinearLayout.LayoutParams(48.dp, 48.dp))
         }
 
         addDivider(5, 5)
@@ -614,7 +624,7 @@ class MainActivity : ComponentActivity() {
         contentDescription = description
         setPadding(8.dp, 8.dp, 8.dp, 8.dp)
         setOnClickListener { action() }
-        layoutParams = LinearLayout.LayoutParams(40.dp, 40.dp)
+        layoutParams = LinearLayout.LayoutParams(48.dp, 48.dp)
     }
 
     private fun showPalette(anchor: View, colors: List<Int>, current: Int, onSelected: (Int) -> Unit) {
@@ -821,6 +831,13 @@ class MainActivity : ComponentActivity() {
         background = rounded(Color.WHITE, 999f)
     }
 
+    private fun fieldLabel(label: String) = TextView(this).apply {
+        text = label
+        textSize = 13f
+        setTextColor(Color.rgb(72, 70, 67))
+        setTypeface(pretendard, Typeface.BOLD)
+    }
+
     private fun rounded(color: Int, radiusDp: Float) = GradientDrawable().apply {
         setColor(color)
         cornerRadius = radiusDp * resources.displayMetrics.density
@@ -842,9 +859,9 @@ class MainActivity : ComponentActivity() {
     private fun applyPressAnimation(view: View) {
         view.setOnTouchListener { target, event ->
             when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> target.animate().scaleX(0.96f).scaleY(0.96f).alpha(0.88f).setDuration(90).start()
+                MotionEvent.ACTION_DOWN -> target.animate().scaleX(0.96f).scaleY(0.96f).alpha(0.88f).setDuration(110).start()
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
-                    target.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(130).start()
+                    target.animate().scaleX(1f).scaleY(1f).alpha(1f).setDuration(170).start()
             }
             false
         }
