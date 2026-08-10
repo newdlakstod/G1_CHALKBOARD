@@ -3,6 +3,23 @@ package com.gdonotice.app
 enum class WindowMode { COMPACT, MEDIUM, EXPANDED }
 enum class CanvasKind { DOCUMENT, WEB, CUSTOM }
 enum class EntryRoute { COVER, HOME }
+enum class AppRoute {
+    HOME, LIBRARY, CREATE, ACCOUNT, DRAWING;
+
+    companion object {
+        fun fromKey(key: String) = entries.firstOrNull {
+            it.name.equals(key, ignoreCase = true)
+        } ?: HOME
+    }
+}
+
+data class AdaptiveLayout(
+    val homeColumns: Int,
+    val libraryColumns: Int,
+    val usesTwoPaneHome: Boolean,
+    val leadingPaneWeight: Float,
+    val trailingPaneWeight: Float
+)
 
 enum class CanvasPreset(
     val kind: CanvasKind,
@@ -30,6 +47,12 @@ object SketchbookDesign {
         widthDp < 600 -> WindowMode.COMPACT
         widthDp < 840 -> WindowMode.MEDIUM
         else -> WindowMode.EXPANDED
+    }
+
+    fun layoutFor(widthDp: Int) = when (windowMode(widthDp)) {
+        WindowMode.COMPACT -> AdaptiveLayout(1, 2, false, 1f, 1f)
+        WindowMode.MEDIUM -> AdaptiveLayout(2, 3, true, 2f / 5f, 3f / 5f)
+        WindowMode.EXPANDED -> AdaptiveLayout(2, 4, true, 2f / 5f, 3f / 5f)
     }
 
     fun validCustomSize(width: Int, height: Int) =

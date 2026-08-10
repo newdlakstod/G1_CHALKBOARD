@@ -74,7 +74,8 @@ class MainActivity : ComponentActivity() {
             View.SYSTEM_UI_FLAG_LAYOUT_STABLE
 
         if (auth.currentUser?.isAnonymous == true) auth.signOut()
-        showWelcome()
+        val requestedBoard = intent.getStringExtra("boardCode")
+        if (requestedBoard != null) showBoard(requestedBoard) else finish()
     }
 
     private fun route() {

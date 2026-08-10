@@ -8,8 +8,9 @@
         android:roundIcon="@drawable/g1_chalkboard_icon"
         android:label="@string/app_name"
         android:theme="@style/Theme.GdoNotice">
+        <activity android:name=".MainActivity" android:exported="false" />
         <activity
-            android:name=".MainActivity"
+            android:name=".SketchbookActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
