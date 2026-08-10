@@ -143,20 +143,42 @@ class MainActivity : ComponentActivity() {
             setTextColor(Color.rgb(116, 110, 105))
         }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 6.dp })
         val columns = if (resources.configuration.screenWidthDp >= 600) 6 else 3
-        val mine = GridLayout(this).apply {
+        val boardGrid = GridLayout(this).apply {
             columnCount = columns
             clipChildren = false
             clipToPadding = false
         }
-        val shared = GridLayout(this).apply {
-            columnCount = columns
-            clipChildren = false
-            clipToPadding = false
+        var showingMine = prefs.getString("libraryTab", "mine") != "shared"
+        lateinit var mineTab: Button
+        lateinit var sharedTab: Button
+        fun styleTabs() {
+            mineTab.background = rounded(if (showingMine) Color.rgb(255, 188, 53) else Color.WHITE, 999f)
+            sharedTab.background = rounded(if (showingMine) Color.WHITE else Color.rgb(255, 188, 53), 999f)
+            mineTab.isSelected = showingMine
+            sharedTab.isSelected = !showingMine
         }
-        root.addView(sectionHeader("내가 만든 칠판", true), LinearLayout.LayoutParams(-1, 48.dp).apply { topMargin = 36.dp })
-        root.addView(mine, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 8.dp })
-        root.addView(sectionHeader("공유받은 칠판"), LinearLayout.LayoutParams(-1, 48.dp).apply { topMargin = 24.dp })
-        root.addView(shared, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 8.dp })
+        root.addView(LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            background = rounded(Color.rgb(235, 231, 225), 999f)
+            setPadding(4.dp, 4.dp, 4.dp, 4.dp)
+            mineTab = Button(this@MainActivity).apply {
+                text = "내 칠판"
+                textSize = 15f
+                isAllCaps = false
+                setTextColor(Color.rgb(31, 31, 31))
+            }
+            sharedTab = Button(this@MainActivity).apply {
+                text = "공유 칠판"
+                textSize = 15f
+                isAllCaps = false
+                setTextColor(Color.rgb(31, 31, 31))
+            }
+            addView(mineTab, LinearLayout.LayoutParams(0, 48.dp, 1f))
+            addView(sharedTab, LinearLayout.LayoutParams(0, 48.dp, 1f).apply { marginStart = 4.dp })
+            styleTabs()
+        }, LinearLayout.LayoutParams(-1, 56.dp).apply { topMargin = 32.dp })
+        root.addView(sectionHeader("칠판 라이브러리", true), LinearLayout.LayoutParams(-1, 48.dp).apply { topMargin = 20.dp })
+        root.addView(boardGrid, LinearLayout.LayoutParams(-1, -2).apply { topMargin = 8.dp })
         val codes = prefs.getStringSet("codes", emptySet()).orEmpty()
         val requests = codes.map { db.collection("boards").document(it).get() }
         Tasks.whenAllSuccess<DocumentSnapshot>(requests).addOnSuccessListener { snapshots ->
@@ -169,14 +191,40 @@ class MainActivity : ComponentActivity() {
                 "date_asc" -> existing.sortedBy { (it.getTimestamp("createdAt") ?: it.getTimestamp("updatedAt"))?.seconds ?: 0L }
                 else -> existing.sortedByDescending { (it.getTimestamp("createdAt") ?: it.getTimestamp("updatedAt"))?.seconds ?: 0L }
             }
-            sorted.forEach { snapshot ->
-                addBoardCard(
-                    if (snapshot.getString("ownerId") == auth.currentUser?.uid) mine else shared,
-                    snapshot.id,
-                    columns,
-                    snapshot
-                )
+            val mine = sorted.filter { it.getString("ownerId") == auth.currentUser?.uid }
+            val shared = sorted.filterNot { it.getString("ownerId") == auth.currentUser?.uid }
+            mineTab.text = "내 칠판 ${mine.size}"
+            sharedTab.text = "공유 칠판 ${shared.size}"
+            fun render() {
+                boardGrid.removeAllViews()
+                val visible = if (showingMine) mine else shared
+                if (visible.isEmpty()) {
+                    boardGrid.addView(TextView(this).apply {
+                        text = if (showingMine) "아직 만든 칠판이 없어요.\n+ 버튼으로 첫 칠판을 만들어보세요." else "아직 공유받은 칠판이 없어요.\n초대 코드로 참여할 수 있어요."
+                        gravity = Gravity.CENTER
+                        textSize = 15f
+                        setTextColor(Color.rgb(116, 110, 105))
+                        setLineSpacing(4.dp.toFloat(), 1f)
+                    }, GridLayout.LayoutParams().apply {
+                        columnSpec = GridLayout.spec(0, columns)
+                        width = resources.displayMetrics.widthPixels - 40.dp
+                        height = 136.dp
+                    })
+                } else visible.forEach { addBoardCard(boardGrid, it.id, columns, it) }
             }
+            mineTab.setOnClickListener {
+                showingMine = true
+                prefs.edit().putString("libraryTab", "mine").apply()
+                styleTabs()
+                render()
+            }
+            sharedTab.setOnClickListener {
+                showingMine = false
+                prefs.edit().putString("libraryTab", "shared").apply()
+                styleTabs()
+                render()
+            }
+            render()
         }
         val scroll = ScrollView(this).apply {
             isFillViewport = true
@@ -305,16 +353,54 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun showAddBoardDialog() {
+        lateinit var dialog: Dialog
+        val choices = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(Button(this@MainActivity).apply {
+                text = "새 칠판 만들기"
+                isAllCaps = false
+                primaryStyle()
+                setOnClickListener {
+                    dialog.dismiss()
+                    showCreateBoardDialog()
+                }
+            }, LinearLayout.LayoutParams(-1, 56.dp).apply { bottomMargin = 12.dp })
+            addView(Button(this@MainActivity).apply {
+                text = "초대 코드로 참여"
+                isAllCaps = false
+                secondaryStyle()
+                setOnClickListener {
+                    dialog.dismiss()
+                    showJoinBoardDialog()
+                }
+            }, LinearLayout.LayoutParams(-1, 56.dp))
+        }
+        dialog = showRoundDialog("칠판 추가", choices, "닫기") {}
+    }
+
+    private fun showCreateBoardDialog() {
         val nameInput = EditText(this).apply {
-            hint = "새 칠판 이름 기입"
+            hint = "예: 우리 가족 낙서장"
             contentDescription = "새 칠판 이름"
             setHintTextColor(Color.rgb(185, 185, 185))
             setSingleLine()
             background = rounded(Color.WHITE, 30f)
             setPadding(18.dp, 0, 18.dp, 0)
         }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(fieldLabel("칠판 이름"), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 8.dp })
+            addView(nameInput, LinearLayout.LayoutParams(-1, 54.dp))
+        }
+        showRoundDialog("새 칠판 만들기", content, "만들기") {
+            val name = nameInput.text.toString().trim()
+            if (name.isBlank()) toast("칠판 이름을 입력해 주세요.") else createBoard(name)
+        }
+    }
+
+    private fun showJoinBoardDialog() {
         val codeInput = EditText(this).apply {
-            hint = "초대코드로 입장"
+            hint = "8자리 초대 코드"
             contentDescription = "공유 칠판 초대 코드"
             setHintTextColor(Color.rgb(185, 185, 185))
             gravity = Gravity.CENTER_VERTICAL or Gravity.START
@@ -322,27 +408,14 @@ class MainActivity : ComponentActivity() {
             background = rounded(Color.WHITE, 30f)
             setPadding(18.dp, 0, 18.dp, 0)
         }
-        lateinit var dialog: Dialog
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            addView(fieldLabel("새 칠판 만들기"), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 8.dp })
-            addView(nameInput, LinearLayout.LayoutParams(-1, 54.dp))
-            addView(TextView(this@MainActivity).apply {
-                text = "또는"
-                gravity = Gravity.CENTER
-                setTextColor(Color.rgb(116, 110, 105))
-            }, LinearLayout.LayoutParams(-1, 42.dp))
-            addView(fieldLabel("공유 칠판 참여"), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 8.dp })
+            addView(fieldLabel("초대 코드"), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = 8.dp })
             addView(codeInput, LinearLayout.LayoutParams(-1, 54.dp))
         }
-        dialog = showRoundDialog("칠판 추가", content, "만들기") {
-            val name = nameInput.text.toString().trim()
+        showRoundDialog("공유 칠판 참여", content, "참여하기") {
             val code = codeInput.text.toString().trim()
-            when {
-                name.isNotBlank() -> createBoard(name)
-                code.isNotBlank() -> joinBoard(code)
-                else -> toast("칠판 이름이나 초대 코드를 입력해 주세요.")
-            }
+            if (code.isBlank()) toast("초대 코드를 입력해 주세요.") else joinBoard(code)
         }
     }
 
