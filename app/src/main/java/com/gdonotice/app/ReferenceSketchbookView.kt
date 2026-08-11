@@ -28,8 +28,8 @@ class ReferenceSketchbookView(context: Context) : View(context) {
     private fun s() = minOf(width / 390f, height / 800f)
     private fun leftInset() = (width - 390f * s()) / 2f
     private fun topInset() = (height - 800f * s()) / 2f
-    private fun x(v: Number) = leftInset() + v.toFloat() * s()
-    private fun y(v: Number) = topInset() + v.toFloat() * s()
+    private fun x(v: Number) = v.toFloat() * s()
+    private fun y(v: Number) = v.toFloat() * s()
     private fun text(canvas: Canvas, value: String, px: Number, pxX: Number, pxY: Number, color: Int = ink, handwritten: Boolean = false, center: Boolean = false) {
         paint.style = Paint.Style.FILL; paint.color = color; paint.textSize = x(px); paint.typeface = if (handwritten) cavorting else pretendard
         paint.textAlign = if (center) Paint.Align.CENTER else Paint.Align.LEFT
@@ -37,7 +37,14 @@ class ReferenceSketchbookView(context: Context) : View(context) {
     }
     private fun line(canvas: Canvas, a: Number, b: Number, c: Number, d: Number, color: Int = ink, width: Number = 1.5f) { paint.style = Paint.Style.STROKE; paint.strokeWidth = x(width); paint.strokeCap = Paint.Cap.ROUND; paint.color = color; canvas.drawLine(x(a), y(b), x(c), y(d), paint) }
     private fun rect(canvas: Canvas, l: Number, t: Number, r: Number, b: Number, radius: Number = 0f, color: Int = Color.TRANSPARENT, stroke: Int? = null, width: Number = 1.5f) { paint.style = Paint.Style.FILL; paint.color = color; canvas.drawRoundRect(x(l), y(t), x(r), y(b), x(radius), x(radius), paint); if (stroke != null) { paint.style = Paint.Style.STROKE; paint.strokeWidth = x(width); paint.color = stroke; canvas.drawRoundRect(x(l), y(t), x(r), y(b), x(radius), x(radius), paint) } }
-    override fun onDraw(canvas: Canvas) { super.onDraw(canvas); canvas.drawColor(paper); when (page) { Page.HOME -> home(canvas); Page.ADD -> add(canvas); Page.SIZE -> size(canvas); Page.LIBRARY -> library(canvas); Page.DRAW -> drawPage(canvas); Page.ACCOUNT -> account(canvas) } }
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        canvas.drawColor(paper)
+        canvas.save()
+        canvas.translate(leftInset(), topInset())
+        when (page) { Page.HOME -> home(canvas); Page.ADD -> add(canvas); Page.SIZE -> size(canvas); Page.LIBRARY -> library(canvas); Page.DRAW -> drawPage(canvas); Page.ACCOUNT -> account(canvas) }
+        canvas.restore()
+    }
 
     private fun header(canvas: Canvas, title: String, back: Boolean = true) { if (back) text(canvas, "‹", 42f, 20f, 58f, ink, true); text(canvas, title, 18f, if (back) 65f else 20f, 48f, ink, true) }
     private fun avatar(canvas: Canvas, cx: Float, cy: Float, r: Float = 22f) { paint.style = Paint.Style.FILL; paint.color = 0xFFDDE5AF.toInt(); canvas.drawCircle(x(cx), y(cy), x(r), paint); paint.style = Paint.Style.STROKE; paint.strokeWidth = x(1.3f); paint.color = ink; canvas.drawCircle(x(cx), y(cy), x(r), paint); canvas.drawCircle(x(cx - 8), y(cy - 5), x(3), paint); canvas.drawCircle(x(cx + 8), y(cy - 5), x(3), paint); path.reset(); path.moveTo(x(cx - 10), y(cy + 7)); path.quadTo(x(cx), y(cy + 15), x(cx + 10), y(cy + 7)); canvas.drawPath(path, paint) }
