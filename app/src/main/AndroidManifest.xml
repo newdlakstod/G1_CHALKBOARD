@@ -4,32 +4,15 @@
 
     <application
         android:allowBackup="true"
-        android:icon="@drawable/g1_chalkboard_icon"
-        android:roundIcon="@drawable/g1_chalkboard_icon"
+        android:icon="@android:drawable/sym_def_app_icon"
+        android:roundIcon="@android:drawable/sym_def_app_icon"
         android:label="@string/app_name"
         android:theme="@style/Theme.GdoNotice">
-        <activity android:name=".MainActivity" android:exported="false" />
-        <activity
-            android:name=".SketchbookActivity"
-            android:exported="true">
+        <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".WidgetConfigActivity"
-            android:exported="true"
-            android:theme="@style/Theme.GdoNotice" />
-        <receiver
-            android:name=".BoardWidget"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/board_widget_info" />
-        </receiver>
     </application>
 </manifest>
