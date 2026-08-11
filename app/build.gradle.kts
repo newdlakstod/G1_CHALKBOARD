@@ -15,8 +15,8 @@ android {
         base.archivesName.set("G1_SKETCHBOOK")
         minSdk = 26
         targetSdk = 35
-        versionCode = 43
-        versionName = "3.0.3"
+        versionCode = 44
+        versionName = "3.0.4"
     }
 
     compileOptions {
